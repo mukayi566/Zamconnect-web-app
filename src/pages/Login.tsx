@@ -68,12 +68,10 @@ export const Login: React.FC = () => {
         {/* Brand Content */}
         <div className="relative z-10">
           <div className="flex items-center space-x-4 mb-8 group cursor-pointer">
-            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-0.5 shadow-2xl shadow-black/20 ring-4 ring-white/10 group-hover:scale-105 transition-transform duration-300 overflow-hidden">
-              <img src="/login-logo.jpeg" alt="ZamID Logo" className="w-full h-full object-cover" />
+            <div className="w-16 h-16 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 overflow-hidden">
+              <img src="/login-logo.jpeg" alt="ZamID Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <h2 className="text-3xl font-bold tracking-tight text-white drop-shadow-md">ZamID Connect</h2>
-              <p className="text-secondary font-bold text-sm uppercase tracking-[0.2em] drop-shadow-sm">Identity Management</p>
             </div>
           </div>
 
@@ -114,12 +112,18 @@ export const Login: React.FC = () => {
       {/* Right Panel: Login Form */}
       <div className="w-full md:w-7/12 lg:w-1/2 bg-white h-full overflow-y-auto flex flex-col items-center py-8 px-6 md:px-10 lg:px-16">
         <div className="w-full max-w-md my-auto">
-          <div className="mb-6">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 text-primary mb-4">
-              <Lock size={24} />
+          <div className="mb-8">
+            {/* Mobile Logo - Visible only on small screens */}
+            <div className="md:hidden flex flex-col items-center mb-10 text-center animate-in fade-in slide-in-from-top-4 duration-700">
+              <div className="w-44 h-44 flex items-center justify-center overflow-hidden mb-1">
+                <img src="/login-logo-mobile.png" alt="ZamID Logo" className="w-full h-full object-contain" />
+              </div>
             </div>
-            <h2 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">Portal Login</h2>
-            <p className="text-slate-500 text-base">Identity Management System Administration</p>
+            <div className="hidden md:inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 text-primary mb-4">
+              <Lock size={20} />
+            </div>
+            <h2 className="text-3xl font-black text-slate-900 mb-2 tracking-tight md:text-left text-center">Portal Login</h2>
+            <p className="text-slate-500 text-base md:text-left text-center">Identity Management System Administration</p>
           </div>
 
           {error && (
@@ -141,7 +145,7 @@ export const Login: React.FC = () => {
               <Form className="space-y-5">
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-700 uppercase tracking-widest flex justify-between items-center" htmlFor="email">
-                    Work Email
+                    Email
                     {touched.email && errors.email && <span className="text-[10px] text-red-500 lowercase normal-case flex items-center gap-1 font-semibold"><AlertCircle size={10} /> {errors.email as string}</span>}
                   </label>
                   <div className="relative group">
