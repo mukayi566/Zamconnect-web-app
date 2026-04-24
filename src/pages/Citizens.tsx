@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { citizenService } from '../services/citizenService';
 import { Badge } from '../components/ui/Badge';
-import { SearchBar } from '../components/ui/SearchBar';
 import { formatDate } from '../utils/formatters';
 
 const provinces = [

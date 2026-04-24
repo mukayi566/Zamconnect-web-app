@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AuthState, AdminUser } from '../types';
+import type { AuthState } from '../types';
 import { supabase } from '../services/supabase';
 
 export const useAuthStore = create<AuthState>((set) => ({

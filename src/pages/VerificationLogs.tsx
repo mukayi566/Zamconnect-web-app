@@ -11,13 +11,11 @@ import {
   Fingerprint,
   QrCode,
   ShieldCheck,
-  Activity,
   ArrowUpDown,
   History
 } from 'lucide-react';
 import { verifyService } from '../services/verifyService';
 import { Badge } from '../components/ui/Badge';
-import { SearchBar } from '../components/ui/SearchBar';
 import { formatDateTime } from '../utils/formatters';
 
 export const VerificationLogs: React.FC = () => {
