@@ -153,7 +153,7 @@ export const Login: React.FC = () => {
                       name="email"
                       type="email"
                       className={`w-full px-5 py-3 rounded-2xl border-2 transition-all outline-none text-slate-900 bg-slate-50 font-medium ${touched.email && errors.email ? 'border-red-200 focus:border-red-500' : 'border-slate-100 focus:border-primary focus:bg-white group-hover:border-slate-200'}`}
-                      placeholder="e.g. j.banda@zamid.gov.zm"
+                      placeholder="e.g. R.Chifwaila@zamid.gov.zm"
                     />
                   </div>
                 </div>
