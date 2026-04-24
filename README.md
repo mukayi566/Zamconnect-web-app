@@ -1,4 +1,4 @@
-ZamID Connect — Admin Panel
+ZamID Connect Admin Panel
 
 Official government administration dashboard for Zambia's national digital identity system.
  Overview
