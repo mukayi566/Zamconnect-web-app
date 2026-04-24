@@ -9,6 +9,7 @@ import { VerificationLogs } from './pages/VerificationLogs';
 import { AuditLogs } from './pages/AuditLogs';
 import { VerifyTool } from './pages/VerifyTool';
 import { Settings } from './pages/Settings';
+import { NotFound } from './pages/NotFound';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 const queryClient = new QueryClient({
@@ -40,7 +41,7 @@ function App() {
             </Route>
           </Route>
 
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
