@@ -25,7 +25,7 @@ export const VerificationLogs: React.FC = () => {
 
   const { data, isLoading } = useQuery({
     queryKey: ['verification-logs', page, search, result],
-    queryFn: () => verifyService.getLogs({ page, search, result }),
+    queryFn: () => verifyService.getLogs({ page: page + 1, search, result }),
   });
 
   const totalPages = data?.count ? Math.ceil(data.count / 25) : 0;

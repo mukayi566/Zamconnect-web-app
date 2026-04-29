@@ -2,15 +2,40 @@ import React, { useEffect } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../services/supabase';
+import { api } from '../services/api';
 
 export const ProtectedRoute: React.FC = () => {
-  const { session, setSession, setLoading, isLoading } = useAuthStore();
+  const { session, setSession, user, setUser, setLoading, isLoading } = useAuthStore();
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setLoading(false);
+      try {
+        // 1. Check Supabase session first (legacy/hybrid)
+        const { data: { session: sbSession } } = await supabase.auth.getSession();
+        if (sbSession) {
+          setSession(sbSession);
+        }
+
+        // 2. Check if we have a user in store or token in localStorage
+        const token = localStorage.getItem('accessToken');
+        if (token && !user) {
+          try {
+            const response = await api.get('/auth/me');
+            if (response.data.success) {
+              setUser(response.data.data);
+            }
+          } catch (err) {
+            console.error("Failed to fetch user profile:", err);
+            // If token is invalid, clear it
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+          }
+        }
+      } catch (error) {
+        console.error("Auth check error:", error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     checkAuth();
@@ -22,7 +47,7 @@ export const ProtectedRoute: React.FC = () => {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [user, setUser, setSession, setLoading]);
 
   if (isLoading) {
     return (
@@ -35,7 +60,7 @@ export const ProtectedRoute: React.FC = () => {
     );
   }
 
-  if (!session) {
+  if (!session && !user) {
     return <Navigate to="/login" replace />;
   }
 

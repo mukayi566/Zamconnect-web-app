@@ -32,7 +32,7 @@ export const Citizens: React.FC = () => {
   const { data, isLoading } = useQuery({
     queryKey: ['citizens', page, search, status, province],
     queryFn: () => citizenService.getCitizens({ 
-      page, 
+      page: page + 1, 
       search, 
       status: status as any, 
       province 

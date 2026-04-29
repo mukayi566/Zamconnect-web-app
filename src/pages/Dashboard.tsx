@@ -18,14 +18,9 @@ import { ProvinceBarChart } from '../components/charts/ProvinceBarChart';
 import { Badge } from '../components/ui/Badge';
 import { Link } from 'react-router-dom';
 import { formatDateTime } from '../utils/formatters';
+import { adminService } from '../services/adminService';
+import { useQuery } from '@tanstack/react-query';
 
-const mockRecentActivity = [
-  { id: '1', actor: 'admin@zamid.gov.zm', action: 'ACTIVATE_CITIZEN', target: 'Mwamba Musonda', time: '2024-04-24T10:30:00Z' },
-  { id: '2', actor: 'registrar@zamid.gov.zm', action: 'REGISTER_CITIZEN', target: 'Chileshe Kapiri', time: '2024-04-24T09:45:00Z' },
-  { id: '3', actor: 'verifier@zamid.gov.zm', action: 'VERIFY_ID', target: 'Misozi Phiri', time: '2024-04-24T09:15:00Z' },
-  { id: '4', actor: 'admin@zamid.gov.zm', action: 'SUSPEND_CITIZEN', target: 'John Daka', time: '2024-04-24T08:30:00Z' },
-  { id: '5', actor: 'admin@zamid.gov.zm', action: 'LOGIN', target: 'System', time: '2024-04-24T08:00:00Z' },
-];
 
 const actorInitials = (email: string) => email.split('@')[0].slice(0, 2).toUpperCase();
 const actorColor = (email: string) => {
@@ -41,6 +36,11 @@ const actorColor = (email: string) => {
 };
 
 export const Dashboard: React.FC = () => {
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: adminService.getDashboardStats,
+  });
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
 
@@ -92,21 +92,21 @@ export const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard
           label="Total Citizens"
-          value="245,892"
+          value={isLoading ? '...' : (stats?.total_citizens || 0).toLocaleString()}
           icon={Users}
           trend={{ value: 12.5, isUp: true }}
           accentColor="primary"
         />
         <StatCard
           label="Pending Verification"
-          value="1,204"
+          value={isLoading ? '...' : (stats?.pending_count || 0).toLocaleString()}
           icon={UserPlus}
           trend={{ value: 2.1, isUp: false }}
           accentColor="amber"
         />
         <StatCard
           label="Active Identities"
-          value="242,150"
+          value={isLoading ? '...' : (stats?.active_count || 0).toLocaleString()}
           icon={CheckCircle}
           trend={{ value: 5.4, isUp: true }}
           accentColor="green"
@@ -156,7 +156,12 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
           <div className="p-6">
-            <StatusPieChart />
+            <StatusPieChart data={[
+              { name: 'Active', value: stats?.active_count || 0, color: '#15803D' },
+              { name: 'Pending', value: stats?.pending_count || 0, color: '#A16207' },
+              { name: 'Suspended', value: stats?.suspended_count || 0, color: '#DC2626' },
+              { name: 'Rejected', value: stats?.rejected_count || 0, color: '#B91C1C' },
+            ]} />
           </div>
         </div>
       </div>
@@ -210,33 +215,42 @@ export const Dashboard: React.FC = () => {
           </div>
 
           <div className="divide-y divide-slate-50">
-            {mockRecentActivity.map((activity) => (
-              <div
-                key={activity.id}
-                className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50/80 transition-colors group"
-              >
-                {/* Avatar */}
-                <div className={`w-9 h-9 rounded-2xl border flex items-center justify-center text-xs font-black shrink-0 ${actorColor(activity.actor)}`}>
-                  {actorInitials(activity.actor)}
+            {isLoading ? (
+              <div className="p-8 text-center text-slate-400 font-medium">Loading activity...</div>
+            ) : stats?.recent_activity && stats.recent_activity.length > 0 ? (
+              stats.recent_activity.map((activity) => (
+                <div
+                  key={activity.id}
+                  className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50/80 transition-colors group"
+                >
+                  {/* Avatar */}
+                  <div className={`w-9 h-9 rounded-2xl border flex items-center justify-center text-xs font-black shrink-0 ${actorColor(activity.actor_email || 'system')}`}>
+                    {actorInitials(activity.actor_email || 'SYS')}
+                  </div>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-800 truncate group-hover:text-primary transition-colors">
+                      {(activity.actor_email || 'system').split('@')[0]}
+                    </p>
+                    <p className="text-xs text-slate-500 truncate">
+                      {activity.target_type ? `${activity.target_type}: ` : ''}
+                      {activity.target_id ? activity.target_id.substring(0, 8) : 'System'}
+                    </p>
+                  </div>
+                  {/* Badge + Time */}
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <Badge status={activity.action.split('_')[0].toLowerCase()}>
+                      {activity.action}
+                    </Badge>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      {formatDateTime(activity.created_at)}
+                    </span>
+                  </div>
                 </div>
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-slate-800 truncate group-hover:text-primary transition-colors">
-                    {activity.actor.split('@')[0]}
-                  </p>
-                  <p className="text-xs text-slate-500 truncate">{activity.target}</p>
-                </div>
-                {/* Badge + Time */}
-                <div className="flex flex-col items-end gap-1 shrink-0">
-                  <Badge status={activity.action.split('_')[0].toLowerCase()}>
-                    {activity.action}
-                  </Badge>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    {formatDateTime(activity.time)}
-                  </span>
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <div className="p-8 text-center text-slate-400 font-medium text-sm">No recent activity recorded.</div>
+            )}
           </div>
         </div>
       </div>

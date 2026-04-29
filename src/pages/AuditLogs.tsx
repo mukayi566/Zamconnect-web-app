@@ -30,7 +30,7 @@ export const AuditLogs: React.FC = () => {
 
   const { data, isLoading } = useQuery({
     queryKey: ['audit-logs', page, search, action],
-    queryFn: () => auditService.getAuditLogs({ page, search, action }),
+    queryFn: () => auditService.getAuditLogs({ page: page + 1, search, action }),
   });
 
   const totalPages = data?.count ? Math.ceil(data.count / 30) : 0;

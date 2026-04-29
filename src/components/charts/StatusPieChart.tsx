@@ -8,14 +8,18 @@ import {
   Tooltip 
 } from 'recharts';
 
-const data = [
-  { name: 'Active', value: 2450, color: '#15803D' },
-  { name: 'Pending', value: 120, color: '#A16207' },
-  { name: 'Suspended', value: 45, color: '#DC2626' },
-  { name: 'Rejected', value: 12, color: '#B91C1C' },
+interface StatusPieChartProps {
+  data?: { name: string; value: number; color: string }[];
+}
+
+const defaultData = [
+  { name: 'Active', value: 0, color: '#15803D' },
+  { name: 'Pending', value: 0, color: '#A16207' },
+  { name: 'Suspended', value: 0, color: '#DC2626' },
+  { name: 'Rejected', value: 0, color: '#B91C1C' },
 ];
 
-export const StatusPieChart: React.FC = () => {
+export const StatusPieChart: React.FC<StatusPieChartProps> = ({ data = defaultData }) => {
   return (
     <div className="h-[300px] w-full">
       <ResponsiveContainer width="100%" height="100%" debounce={1}>

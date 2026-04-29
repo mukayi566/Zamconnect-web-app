@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { Lock, Info, Eye, EyeOff, AlertCircle, ShieldCheck, ChevronRight, User } from 'lucide-react';
-import { supabase } from '../services/supabase';
+import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 
 const loginSchema = Yup.object().shape({
@@ -13,7 +13,7 @@ const loginSchema = Yup.object().shape({
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { setSession, setUser } = useAuthStore();
+  const { setUser } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDemoOpen, setIsDemoOpen] = useState(false);
@@ -21,30 +21,23 @@ export const Login: React.FC = () => {
   const handleLogin = async (values: any, { setSubmitting }: any) => {
     setError(null);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: values.email,
+      const response = await api.post('/auth/login', {
+        email: values.email.trim().toLowerCase(),
         password: values.password,
       });
 
-      if (error) throw error;
+      const { data } = response;
 
-      if (data.session) {
-        setSession(data.session);
-        const role = values.email.includes('admin') ? 'admin' : (values.email.includes('registrar') ? 'registrar' : 'verifier');
-        setUser({
-          id: data.user.id,
-          email: data.user.email!,
-          full_name: values.email.split('@')[0].toUpperCase(),
-          role: role as any,
-          province: 'Lusaka',
-          is_active: true,
-          last_login: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-        });
-        navigate('/dashboard');
-      }
+      if (!data.success) throw new Error(data.message);
+
+      const authData = data.data;
+      localStorage.setItem('accessToken', authData.access_token);
+      localStorage.setItem('refreshToken', authData.refresh_token);
+
+      setUser(authData.user);
+      navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Invalid credentials. Please try again.');
+      setError(err.response?.data?.detail || err.message || 'Invalid credentials. Please try again.');
     } finally {
       setSubmitting(false);
     }

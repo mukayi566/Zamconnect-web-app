@@ -15,6 +15,11 @@ export interface Citizen {
   phone: string;
   email: string;
   photo_url: string;
+  selfie_url?: string;
+  signature_url?: string;
+  nrc_url?: string;
+  passport_url?: string;
+  birth_cert_url?: string;
   status: CitizenStatus;
   role: 'citizen';
   qr_payload: string;

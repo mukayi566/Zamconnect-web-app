@@ -16,7 +16,12 @@ import {
   CreditCard,
   QrCode,
   Activity,
-  MoreVertical
+  MoreVertical,
+  FileText,
+  Camera,
+  PenTool,
+  ExternalLink,
+  Download
 } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { citizenService } from '../services/citizenService';
@@ -24,6 +29,7 @@ import { auditService } from '../services/auditService';
 import { useAuthStore } from '../store/authStore';
 import { Badge } from '../components/ui/Badge';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { ImageModal } from '../components/ui/ImageModal';
 import { formatDate, formatDateTime } from '../utils/formatters';
 
 export const CitizenDetail: React.FC = () => {
@@ -36,6 +42,8 @@ export const CitizenDetail: React.FC = () => {
     show: boolean;
     action: 'active' | 'suspended' | 'rejected' | 'pending' | null;
   }>({ show: false, action: null });
+
+  const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
 
   const { data: citizen, isLoading } = useQuery({
     queryKey: ['citizen', id],
@@ -109,7 +117,10 @@ export const CitizenDetail: React.FC = () => {
         <div className="lg:col-span-4 space-y-8">
           {/* Profile Photo Card */}
           <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden group">
-            <div className="aspect-[4/5] bg-slate-50 flex items-center justify-center relative overflow-hidden">
+            <div 
+              className="aspect-[4/5] bg-slate-50 flex items-center justify-center relative overflow-hidden cursor-zoom-in"
+              onClick={() => data.photo_url && setPreviewImage({ url: data.photo_url, title: 'Profile Photo' })}
+            >
               {data.photo_url ? (
                 <img src={data.photo_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
               ) : (
@@ -236,6 +247,116 @@ export const CitizenDetail: React.FC = () => {
                 <InfoItem icon={Mail} label="Secure Email" value={data.email || 'Not available'} />
                 <InfoItem icon={Activity} label="Identity Created" value={formatDateTime(data.created_at)} />
                 <InfoItem icon={ShieldAlert} label="Assigned Role" value={data.role.toUpperCase()} />
+              </div>
+            </div>
+          </div>
+          
+          {/* ── Verification Assets Section ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Identity Media (Selfie & Signature) */}
+            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 p-8 overflow-hidden relative">
+               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-3xl rounded-full" />
+              <div className="flex items-center space-x-3 mb-6 relative z-10">
+                <div className="p-2.5 bg-indigo-50 rounded-2xl text-indigo-600">
+                  <Camera size={20} />
+                </div>
+                <h4 className="text-lg font-black text-slate-900 tracking-tight">Identity Verification</h4>
+              </div>
+              
+              <div className="space-y-6 relative z-10">
+                {/* Selfie Preview */}
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Live Selfie Capture</p>
+                  <div 
+                    className="aspect-video rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 overflow-hidden group/media relative cursor-zoom-in"
+                    onClick={() => data.selfie_url && setPreviewImage({ url: data.selfie_url, title: 'Identity Selfie' })}
+                  >
+                    {data.selfie_url ? (
+                      <>
+                        <img src={data.selfie_url} alt="Selfie" className="w-full h-full object-cover group-hover/media:scale-110 transition-transform duration-700" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                          <div className="p-2 bg-white rounded-full text-slate-900">
+                            <ExternalLink size={18} />
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
+                        <Camera size={32} className="mb-2 opacity-50" />
+                        <span className="text-xs font-bold uppercase tracking-widest">No selfie recorded</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Signature Preview */}
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Digital Signature</p>
+                  <div 
+                    className="h-32 rounded-3xl bg-slate-50 border border-slate-100 overflow-hidden group/media relative px-4 cursor-zoom-in"
+                    onClick={() => data.signature_url && setPreviewImage({ url: data.signature_url, title: 'Citizen Signature' })}
+                  >
+                    {data.signature_url ? (
+                      <>
+                        <img src={data.signature_url} alt="Signature" className="w-full h-full object-contain mix-blend-multiply" />
+                        <div className="absolute inset-0 bg-black/5 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-end p-4">
+                          <div className="p-2 bg-white rounded-xl text-slate-900 shadow-lg">
+                            <ExternalLink size={16} />
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
+                        <PenTool size={32} className="mb-2 opacity-50" />
+                        <span className="text-xs font-bold uppercase tracking-widest">No signature provided</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Supporting Documents */}
+            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 p-8 relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-3xl rounded-full" />
+              <div className="flex items-center space-x-3 mb-6 relative z-10">
+                <div className="p-2.5 bg-amber-50 rounded-2xl text-amber-600">
+                  <FileText size={20} />
+                </div>
+                <h4 className="text-lg font-black text-slate-900 tracking-tight">Supporting Documents</h4>
+              </div>
+
+              <div className="space-y-3 relative z-10">
+                <DocumentItem 
+                  label="NRC Document" 
+                  url={data.nrc_url} 
+                  icon={CreditCard}
+                  color="blue"
+                  onPreview={() => data.nrc_url && setPreviewImage({ url: data.nrc_url, title: 'NRC Document' })}
+                />
+                <DocumentItem 
+                  label="Passport Document" 
+                  url={data.passport_url} 
+                  icon={ShieldCheck}
+                  color="indigo"
+                  onPreview={() => data.passport_url && setPreviewImage({ url: data.passport_url, title: 'Passport Document' })}
+                />
+                <DocumentItem 
+                  label="Birth Certificate" 
+                  url={data.birth_cert_url} 
+                  icon={FileText}
+                  color="emerald"
+                  onPreview={() => data.birth_cert_url && setPreviewImage({ url: data.birth_cert_url, title: 'Birth Certificate' })}
+                />
+              </div>
+
+              <div className="mt-8 p-5 bg-slate-50 rounded-3xl border border-slate-100 relative z-10">
+                <div className="flex items-start space-x-3">
+                  <ShieldAlert size={18} className="text-slate-400 mt-0.5" />
+                  <p className="text-[11px] leading-relaxed text-slate-500 font-medium">
+                    All documents are encrypted at rest and only accessible to authorized personnel. Please verify the authenticity of the uploads before approval.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -366,6 +487,13 @@ export const CitizenDetail: React.FC = () => {
         variant={confirmModal.action === 'rejected' || confirmModal.action === 'suspended' ? 'danger' : 'primary'}
         isLoading={updateStatus.isPending}
       />
+
+      <ImageModal 
+        isOpen={!!previewImage}
+        onClose={() => setPreviewImage(null)}
+        imageUrl={previewImage?.url || ''}
+        title={previewImage?.title || ''}
+      />
     </div>
   );
 };
@@ -381,3 +509,51 @@ const InfoItem = ({ icon: Icon, label, value }: { icon: any, label: string, valu
     </div>
   </div>
 );
+
+const DocumentItem = ({ label, url, icon: Icon, color, onPreview }: { label: string, url?: string, icon: any, color: string, onPreview: () => void }) => {
+  const colorMap: Record<string, string> = {
+    blue: 'bg-blue-50 text-blue-600',
+    indigo: 'bg-indigo-50 text-indigo-600',
+    emerald: 'bg-emerald-50 text-emerald-600',
+    slate: 'bg-slate-50 text-slate-600'
+  };
+
+  return (
+    <div className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-3xl hover:border-slate-200 transition-all group/doc">
+      <div className="flex items-center space-x-4">
+        <div className={`p-3 rounded-2xl ${colorMap[color] || colorMap.slate} group-hover/doc:scale-110 transition-transform`}>
+          <Icon size={20} />
+        </div>
+        <div>
+          <p className="text-sm font-black text-slate-900">{label}</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            {url ? 'Ready for verification' : 'Not uploaded'}
+          </p>
+        </div>
+      </div>
+      {url ? (
+        <div className="flex items-center space-x-2">
+          <button 
+            onClick={onPreview}
+            className="p-2.5 bg-slate-50 text-slate-400 hover:bg-primary hover:text-white rounded-xl transition-all"
+            title="View Document"
+          >
+            <ExternalLink size={18} />
+          </button>
+          <a 
+            href={url} 
+            download 
+            className="p-2.5 bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white rounded-xl transition-all"
+            title="Download"
+          >
+            <Download size={18} />
+          </a>
+        </div>
+      ) : (
+        <div className="p-2.5 text-slate-200">
+          <XCircle size={20} />
+        </div>
+      )}
+    </div>
+  );
+};

@@ -11,6 +11,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   setLoading: (loading) => set({ isLoading: loading }),
   logout: async () => {
     await supabase.auth.signOut();
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     set({ session: null, user: null });
   },
 }));

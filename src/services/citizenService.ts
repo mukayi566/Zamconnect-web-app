@@ -1,58 +1,36 @@
-import { supabase } from './supabase';
+import { api } from './api';
 import type { Citizen, CitizenStatus } from '../types';
 
 export const citizenService = {
   async getCitizens({ 
-    page = 0, 
+    page = 1, 
     pageSize = 20, 
     status = 'all', 
     province = 'all', 
     search = '' 
   }) {
-    let query = supabase
-      .from('citizens')
-      .select('*', { count: 'exact' });
+    const { data } = await api.get('/citizens', {
+      params: { page, limit: pageSize, status, province, search }
+    });
+    
+    if (!data.success) throw new Error(data.message);
 
-    if (status !== 'all') {
-      query = query.eq('status', status);
-    }
-
-    if (province !== 'all') {
-      query = query.eq('province', province);
-    }
-
-    if (search) {
-      query = query.or(`nrc_number.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%`);
-    }
-
-    const from = page * pageSize;
-    const to = from + pageSize - 1;
-
-    const { data, count, error } = await query
-      .range(from, to)
-      .order('created_at', { ascending: false });
-
-    return { data: data as Citizen[], count, error };
+    return { 
+      data: data.data as Citizen[], 
+      count: data.meta.total, 
+      error: null 
+    };
   },
 
   async getCitizenById(id: string) {
-    const { data, error } = await supabase
-      .from('citizens')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    return { data: data as Citizen, error };
+    const { data } = await api.get(`/citizens/${id}`);
+    if (!data.success) throw new Error(data.message);
+    return { data: data.data as Citizen, error: null };
   },
 
   async updateCitizenStatus(id: string, status: CitizenStatus) {
-    const { data, error } = await supabase
-      .from('citizens')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-
-    return { data, error };
+    const { data } = await api.patch(`/citizens/${id}/status`, { status });
+    if (!data.success) throw new Error(data.message);
+    return { data: data.data, error: null };
   }
 };
