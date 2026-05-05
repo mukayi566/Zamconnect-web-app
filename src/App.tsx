@@ -12,6 +12,8 @@ import { Settings } from './pages/Settings';
 import { NotFound } from './pages/NotFound';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
+import { Toaster } from 'react-hot-toast';
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -24,6 +26,7 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <Toaster position="top-right" reverseOrder={false} />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />

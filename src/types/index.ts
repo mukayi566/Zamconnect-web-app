@@ -18,6 +18,7 @@ export interface Citizen {
   selfie_url?: string;
   signature_url?: string;
   nrc_url?: string;
+  nrc_back_url?: string;
   passport_url?: string;
   birth_cert_url?: string;
   status: CitizenStatus;

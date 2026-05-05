@@ -25,18 +25,16 @@ import {
 } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { citizenService } from '../services/citizenService';
-import { auditService } from '../services/auditService';
-import { useAuthStore } from '../store/authStore';
 import { Badge } from '../components/ui/Badge';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { ImageModal } from '../components/ui/ImageModal';
 import { formatDate, formatDateTime } from '../utils/formatters';
+import { toast } from 'react-hot-toast';
 
 export const CitizenDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user } = useAuthStore();
   
   const [confirmModal, setConfirmModal] = useState<{
     show: boolean;
@@ -53,19 +51,24 @@ export const CitizenDetail: React.FC = () => {
 
   const updateStatus = useMutation({
     mutationFn: async (status: 'active' | 'suspended' | 'rejected' | 'pending') => {
-      await citizenService.updateCitizenStatus(id!, status);
-      await auditService.logAction({
-        actor_id: user?.id,
-        actor_email: user?.email,
-        action: `${status.toUpperCase()}_CITIZEN`,
-        target_id: id,
-        target_type: 'citizen',
-        metadata: { previous_status: citizen?.data?.status }
+      const promise = (async () => {
+        await citizenService.updateCitizenStatus(id!, status);
+      })();
+
+      toast.promise(promise, {
+        loading: `Updating citizen status to ${status}...`,
+        success: `Citizen status updated to ${status} successfully!`,
+        error: `Failed to update citizen status.`,
       });
+
+      return promise;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['citizen', id] });
       setConfirmModal({ show: false, action: null });
+    },
+    onError: (error: any) => {
+      console.error('Update status error:', error);
     }
   });
 
@@ -88,6 +91,18 @@ export const CitizenDetail: React.FC = () => {
   );
 
   const data = citizen.data;
+
+  // Helper to ensure we have a valid absolute URL for assets
+  const getAssetUrl = (url?: string | null) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    // Fallback: if it's a relative path, prepend Supabase Storage URL
+    const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (baseUrl) {
+      return `${baseUrl}/storage/v1/object/public/citizens/${url}`;
+    }
+    return url;
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700 pb-20">
@@ -119,10 +134,10 @@ export const CitizenDetail: React.FC = () => {
           <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden group">
             <div 
               className="aspect-[4/5] bg-slate-50 flex items-center justify-center relative overflow-hidden cursor-zoom-in"
-              onClick={() => data.photo_url && setPreviewImage({ url: data.photo_url, title: 'Profile Photo' })}
+              onClick={() => getAssetUrl(data.photo_url) && setPreviewImage({ url: getAssetUrl(data.photo_url)!, title: 'Profile Photo' })}
             >
-              {data.photo_url ? (
-                <img src={data.photo_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+              {getAssetUrl(data.photo_url) ? (
+                <img src={getAssetUrl(data.photo_url)!} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
                   <User size={80} className="text-slate-300" />
@@ -140,7 +155,9 @@ export const CitizenDetail: React.FC = () => {
                 <ShieldCheck size={24} />
               </div>
               <h3 className="text-2xl font-black text-slate-900 tracking-tight mt-2">{data.first_name} {data.last_name}</h3>
-              <p className="text-primary font-mono font-black mt-2 uppercase tracking-[0.1em] bg-primary/5 inline-block px-3 py-1 rounded-lg border border-primary/10">NRC {data.nrc_number}</p>
+              <p className="text-primary font-mono font-black mt-2 uppercase tracking-[0.1em] bg-primary/5 inline-block px-3 py-1 rounded-lg border border-primary/10">
+                NRC {data.nrc_number || 'TO BE ASSIGNED'}
+              </p>
             </div>
           </div>
 
@@ -173,8 +190,8 @@ export const CitizenDetail: React.FC = () => {
 
               <div className="flex gap-4 items-center">
                 <div className="w-20 h-24 bg-white/10 backdrop-blur-sm rounded-xl overflow-hidden border border-white/20 shadow-inner shrink-0">
-                  {data.photo_url ? (
-                    <img src={data.photo_url} alt="" className="w-full h-full object-cover grayscale brightness-125 contrast-125" />
+                  {getAssetUrl(data.photo_url) ? (
+                    <img src={getAssetUrl(data.photo_url)!} alt="" className="w-full h-full object-cover grayscale brightness-125 contrast-125" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center opacity-30"><User size={24}/></div>
                   )}
@@ -187,7 +204,7 @@ export const CitizenDetail: React.FC = () => {
                   <div className="flex gap-4">
                     <div>
                       <p className="text-[7px] font-black uppercase opacity-60 tracking-widest">NRC Number</p>
-                      <p className="text-[11px] font-mono font-black tracking-widest">{data.nrc_number}</p>
+                      <p className="text-[11px] font-mono font-black tracking-widest">{data.nrc_number || 'TO BE ASSIGNED'}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -269,17 +286,16 @@ export const CitizenDetail: React.FC = () => {
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Live Selfie Capture</p>
                   <div 
                     className="aspect-video rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 overflow-hidden group/media relative cursor-zoom-in"
-                    onClick={() => data.selfie_url && setPreviewImage({ url: data.selfie_url, title: 'Identity Selfie' })}
+                    onClick={() => getAssetUrl(data.selfie_url) && setPreviewImage({ url: getAssetUrl(data.selfie_url)!, title: 'Identity Selfie' })}
                   >
-                    {data.selfie_url ? (
-                      <>
-                        <img src={data.selfie_url} alt="Selfie" className="w-full h-full object-cover group-hover/media:scale-110 transition-transform duration-700" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                          <div className="p-2 bg-white rounded-full text-slate-900">
-                            <ExternalLink size={18} />
-                          </div>
-                        </div>
-                      </>
+                    {getAssetUrl(data.selfie_url) ? (
+                      <ImgWithFallback
+                        src={getAssetUrl(data.selfie_url)!}
+                        alt="Selfie"
+                        className="w-full h-full object-cover group-hover/media:scale-110 transition-transform duration-700"
+                        fallbackLabel="Selfie"
+                        rawUrl={getAssetUrl(data.selfie_url)!}
+                      />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
                         <Camera size={32} className="mb-2 opacity-50" />
@@ -294,17 +310,16 @@ export const CitizenDetail: React.FC = () => {
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Digital Signature</p>
                   <div 
                     className="h-32 rounded-3xl bg-slate-50 border border-slate-100 overflow-hidden group/media relative px-4 cursor-zoom-in"
-                    onClick={() => data.signature_url && setPreviewImage({ url: data.signature_url, title: 'Citizen Signature' })}
+                    onClick={() => getAssetUrl(data.signature_url) && setPreviewImage({ url: getAssetUrl(data.signature_url)!, title: 'Citizen Signature' })}
                   >
-                    {data.signature_url ? (
-                      <>
-                        <img src={data.signature_url} alt="Signature" className="w-full h-full object-contain mix-blend-multiply" />
-                        <div className="absolute inset-0 bg-black/5 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-end p-4">
-                          <div className="p-2 bg-white rounded-xl text-slate-900 shadow-lg">
-                            <ExternalLink size={16} />
-                          </div>
-                        </div>
-                      </>
+                    {getAssetUrl(data.signature_url) ? (
+                      <ImgWithFallback
+                        src={getAssetUrl(data.signature_url)!}
+                        alt="Signature"
+                        className="w-full h-full object-contain mix-blend-multiply"
+                        fallbackLabel="Signature"
+                        rawUrl={getAssetUrl(data.signature_url)!}
+                      />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
                         <PenTool size={32} className="mb-2 opacity-50" />
@@ -328,25 +343,32 @@ export const CitizenDetail: React.FC = () => {
 
               <div className="space-y-3 relative z-10">
                 <DocumentItem 
-                  label="NRC Document" 
-                  url={data.nrc_url} 
+                  label="NRC Front" 
+                  url={getAssetUrl(data.nrc_url) || undefined} 
                   icon={CreditCard}
                   color="blue"
-                  onPreview={() => data.nrc_url && setPreviewImage({ url: data.nrc_url, title: 'NRC Document' })}
+                  onPreview={() => getAssetUrl(data.nrc_url) && setPreviewImage({ url: getAssetUrl(data.nrc_url)!, title: 'NRC Front' })}
+                />
+                <DocumentItem 
+                  label="NRC Back" 
+                  url={getAssetUrl(data.nrc_back_url) || undefined} 
+                  icon={CreditCard}
+                  color="blue"
+                  onPreview={() => getAssetUrl(data.nrc_back_url) && setPreviewImage({ url: getAssetUrl(data.nrc_back_url)!, title: 'NRC Back' })}
                 />
                 <DocumentItem 
                   label="Passport Document" 
-                  url={data.passport_url} 
+                  url={getAssetUrl(data.passport_url) || undefined} 
                   icon={ShieldCheck}
                   color="indigo"
-                  onPreview={() => data.passport_url && setPreviewImage({ url: data.passport_url, title: 'Passport Document' })}
+                  onPreview={() => getAssetUrl(data.passport_url) && setPreviewImage({ url: getAssetUrl(data.passport_url)!, title: 'Passport Document' })}
                 />
                 <DocumentItem 
                   label="Birth Certificate" 
-                  url={data.birth_cert_url} 
+                  url={getAssetUrl(data.birth_cert_url) || undefined} 
                   icon={FileText}
                   color="emerald"
-                  onPreview={() => data.birth_cert_url && setPreviewImage({ url: data.birth_cert_url, title: 'Birth Certificate' })}
+                  onPreview={() => getAssetUrl(data.birth_cert_url) && setPreviewImage({ url: getAssetUrl(data.birth_cert_url)!, title: 'Birth Certificate' })}
                 />
               </div>
 
@@ -482,10 +504,11 @@ export const CitizenDetail: React.FC = () => {
         isOpen={confirmModal.show}
         onClose={() => setConfirmModal({ show: false, action: null })}
         onConfirm={() => confirmModal.action && updateStatus.mutate(confirmModal.action)}
-        title={`${confirmModal.action?.charAt(0).toUpperCase()}${confirmModal.action?.slice(1)} Citizen Record`}
-        message={`Warning: You are about to modify the legal status of ${data.first_name} ${data.last_name} in the national registry. This action will be permanently recorded in the system audit trail with your credentials.`}
-        variant={confirmModal.action === 'rejected' || confirmModal.action === 'suspended' ? 'danger' : 'primary'}
         isLoading={updateStatus.isPending}
+        title={`${confirmModal.action?.charAt(0).toUpperCase()}${confirmModal.action?.slice(1)} Citizen Record`}
+        message={`Are you sure you want to change this citizen's status to ${confirmModal.action}? This action will be permanently recorded in the national identity audit trail.`}
+        variant={confirmModal.action === 'rejected' ? 'danger' : confirmModal.action === 'suspended' ? 'warning' : 'primary'}
+        confirmText={`Confirm ${confirmModal.action}`}
       />
 
       <ImageModal 
@@ -495,6 +518,50 @@ export const CitizenDetail: React.FC = () => {
         title={previewImage?.title || ''}
       />
     </div>
+  );
+};
+
+/**
+ * Renders an image with a visible error fallback.
+ * If the image 403s / 404s (e.g. private Supabase bucket), instead of showing nothing
+ * it shows a red box with the raw URL so it's easy to diagnose.
+ */
+const ImgWithFallback = ({
+  src, alt, className, fallbackLabel, rawUrl,
+}: {
+  src: string; alt: string; className: string; fallbackLabel: string; rawUrl: string;
+}) => {
+  const [errored, setErrored] = React.useState(false);
+
+  if (errored) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-red-50 gap-2 p-4">
+        <span className="text-xs font-black text-red-500 uppercase tracking-widest">
+          ⚠ {fallbackLabel} failed to load
+        </span>
+        <a
+          href={rawUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="text-[9px] font-mono text-red-400 underline break-all text-center leading-relaxed max-w-full"
+          onClick={e => e.stopPropagation()}
+        >
+          {rawUrl}
+        </a>
+        <span className="text-[9px] text-red-400 font-medium">
+          If this URL is correct, make sure the Supabase 'citizens' bucket is set to Public.
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      onError={() => setErrored(true)}
+    />
   );
 };
 

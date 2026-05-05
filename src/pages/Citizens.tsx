@@ -41,6 +41,18 @@ export const Citizens: React.FC = () => {
 
   const totalPages = data?.count ? Math.ceil(data.count / 20) : 0;
 
+  // Helper to ensure we have a valid absolute URL for assets
+  const getAssetUrl = (url?: string) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    
+    const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (baseUrl) {
+      return `${baseUrl}/storage/v1/object/public/citizens/${url}`;
+    }
+    return url;
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-10">
       {/* ── Page Header ── */}
@@ -168,8 +180,8 @@ export const Citizens: React.FC = () => {
                       <div className="flex items-center space-x-4">
                         <div className="relative group/avatar">
                           <div className="w-11 h-11 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center text-primary font-black overflow-hidden group-hover/avatar:border-primary/30 transition-all">
-                            {citizen.photo_url ? (
-                              <img src={citizen.photo_url} alt="" className="w-full h-full object-cover" />
+                            {getAssetUrl(citizen.photo_url) ? (
+                              <img src={getAssetUrl(citizen.photo_url)!} alt="" className="w-full h-full object-cover" />
                             ) : (
                               <div className="w-full h-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
                                 {citizen.first_name.charAt(0)}{citizen.last_name.charAt(0)}
