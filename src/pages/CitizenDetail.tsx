@@ -95,13 +95,15 @@ export const CitizenDetail: React.FC = () => {
   // Helper to ensure we have a valid absolute URL for assets
   const getAssetUrl = (url?: string | null) => {
     if (!url) return null;
+    // Local device paths (old buggy records stored the raw picker URI) — treat as missing
+    if (url.startsWith('file://') || url.startsWith('content://')) return null;
     if (url.startsWith('http')) return url;
-    // Fallback: if it's a relative path, prepend Supabase Storage URL
+    // Fallback: relative storage path — construct full Supabase URL
     const baseUrl = import.meta.env.VITE_SUPABASE_URL;
     if (baseUrl) {
       return `${baseUrl}/storage/v1/object/public/citizens/${url}`;
     }
-    return url;
+    return null;
   };
 
   return (
