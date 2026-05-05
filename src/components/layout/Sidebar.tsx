@@ -9,7 +9,8 @@ import {
   Settings, 
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Zap
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { clsx, type ClassValue } from 'clsx';
@@ -25,17 +26,22 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: Users, label: 'Citizens', path: '/citizens' },
-  { icon: ShieldCheck, label: 'Verification Logs', path: '/verification-logs' },
-  { icon: ScrollText, label: 'Audit Log', path: '/audit-logs' },
-  { icon: ScanLine, label: 'Verify Tool', path: '/verify' },
-  { icon: Settings, label: 'Settings', path: '/settings' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['admin', 'registrar', 'verifier'] },
+  { icon: Users, label: 'Citizens', path: '/citizens', roles: ['admin', 'registrar'] },
+  { icon: ShieldCheck, label: 'Verification Logs', path: '/verification-logs', roles: ['admin'] },
+  { icon: Zap, label: 'Api Control', path: '/api-control', roles: ['admin'] },
+  { icon: ScrollText, label: 'Audit Log', path: '/audit-logs', roles: ['admin'] },
+  { icon: ScanLine, label: 'Verify Tool', path: '/verify', roles: ['admin', 'registrar', 'verifier'] },
+  { icon: Settings, label: 'Settings', path: '/settings', roles: ['admin', 'registrar', 'verifier'] },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
-  const { logout } = useAuthStore();
+  const { logout, user } = useAuthStore();
   const navigate = useNavigate();
+
+  const filteredNavItems = navItems.filter(item => 
+    !item.roles || (user?.role && item.roles.includes(user.role))
+  );
 
   const handleLogout = async () => {
     await logout();
@@ -88,9 +94,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
           </div>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto scrollbar-hide py-2">
-          {navItems.map((item) => (
+          {filteredNavItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
@@ -131,13 +136,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
             <LogOut size={16} className="group-hover/logout:-translate-x-1 transition-transform" />
             <span>Logout Portal</span>
           </button>
-        </div>
-
-        {/* System Version */}
-        <div className="px-8 pb-6 pt-2">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] text-center">
-            ZamID Connect v2.4.0
-          </p>
         </div>
       </aside>
     </>

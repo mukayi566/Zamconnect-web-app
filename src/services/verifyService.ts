@@ -14,5 +14,17 @@ export const verifyService = {
       count: data.meta.total, 
       error: null 
     };
+  },
+
+  async verifyByNRC(nrc_number: string, organization?: string) {
+    const { data } = await api.post('/verify/nrc', { nrc_number, organization });
+    if (!data.success) throw new Error(data.message);
+    return data.data;
+  },
+
+  async verifyByQR(qr_token: string, organization?: string) {
+    const { data } = await api.post('/verify/qr', { qr_token, organization });
+    if (!data.success) throw new Error(data.message);
+    return data.data;
   }
 };

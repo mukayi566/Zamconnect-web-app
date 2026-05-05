@@ -23,6 +23,7 @@ import {
   ExternalLink,
   Download
 } from 'lucide-react';
+import { useAuthStore } from '../store/authStore';
 import QRCode from 'react-qr-code';
 import { citizenService } from '../services/citizenService';
 import { Badge } from '../components/ui/Badge';
@@ -35,6 +36,8 @@ export const CitizenDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
   
   const [confirmModal, setConfirmModal] = useState<{
     show: boolean;
@@ -95,15 +98,13 @@ export const CitizenDetail: React.FC = () => {
   // Helper to ensure we have a valid absolute URL for assets
   const getAssetUrl = (url?: string | null) => {
     if (!url) return null;
-    // Local device paths (old buggy records stored the raw picker URI) — treat as missing
-    if (url.startsWith('file://') || url.startsWith('content://')) return null;
     if (url.startsWith('http')) return url;
-    // Fallback: relative storage path — construct full Supabase URL
+    // Fallback: if it's a relative path, prepend Supabase Storage URL
     const baseUrl = import.meta.env.VITE_SUPABASE_URL;
     if (baseUrl) {
       return `${baseUrl}/storage/v1/object/public/citizens/${url}`;
     }
-    return null;
+    return url;
   };
 
   return (
@@ -385,67 +386,69 @@ export const CitizenDetail: React.FC = () => {
             </div>
           </div>
 
-          {/* Management Actions */}
-          <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 p-8 sm:p-10 relative overflow-hidden ring-1 ring-slate-100">
-             <div className="absolute inset-y-0 left-0 w-2 bg-primary" />
-             
-             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-               <div>
-                 <h4 className="text-xl font-black text-slate-900 tracking-tight">Access Control</h4>
-                 <p className="text-sm text-slate-500 font-medium mt-1">Manage state and administrative status for this identity.</p>
-               </div>
+          {/* Management Actions - Only for Admins */}
+          {isAdmin && (
+            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 p-8 sm:p-10 relative overflow-hidden ring-1 ring-slate-100">
+               <div className="absolute inset-y-0 left-0 w-2 bg-primary" />
                
-               <div className="flex flex-wrap gap-3">
-                {data.status === 'pending' && (
-                  <>
+               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                 <div>
+                   <h4 className="text-xl font-black text-slate-900 tracking-tight">Access Control</h4>
+                   <p className="text-sm text-slate-500 font-medium mt-1">Manage state and administrative status for this identity.</p>
+                 </div>
+                 
+                 <div className="flex flex-wrap gap-3">
+                  {data.status === 'pending' && (
+                    <>
+                      <button 
+                        onClick={() => setConfirmModal({ show: true, action: 'active' })}
+                        className="group flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-green-200 active:scale-95"
+                      >
+                        <CheckCircle size={18} />
+                        <span>Approve Profile</span>
+                      </button>
+                      <button 
+                        onClick={() => setConfirmModal({ show: true, action: 'rejected' })}
+                        className="flex items-center space-x-2 bg-white border border-red-100 text-red-500 hover:bg-red-50 h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95"
+                      >
+                         <XCircle size={18} />
+                        <span>Reject Application</span>
+                      </button>
+                    </>
+                  )}
+                  
+                  {data.status === 'active' && (
+                    <button 
+                      onClick={() => setConfirmModal({ show: true, action: 'suspended' })}
+                      className="flex items-center space-x-2 bg-white border border-orange-200 text-orange-600 hover:bg-orange-50 h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95"
+                    >
+                      <ShieldAlert size={18} />
+                      <span>Suspend Identity</span>
+                    </button>
+                  )}
+
+                  {data.status === 'suspended' && (
                     <button 
                       onClick={() => setConfirmModal({ show: true, action: 'active' })}
-                      className="group flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-green-200 active:scale-95"
+                      className="flex items-center space-x-2 bg-primary text-white h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-primary/20 active:scale-95"
                     >
                       <CheckCircle size={18} />
-                      <span>Approve Profile</span>
+                      <span>Restore Identity</span>
                     </button>
+                  )}
+                  
+                  {data.status === 'rejected' && (
                     <button 
-                      onClick={() => setConfirmModal({ show: true, action: 'rejected' })}
-                      className="flex items-center space-x-2 bg-white border border-red-100 text-red-500 hover:bg-red-50 h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95"
+                      onClick={() => setConfirmModal({ show: true, action: 'pending' })}
+                      className="flex items-center space-x-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95"
                     >
-                       <XCircle size={18} />
-                      <span>Reject Application</span>
+                      <span>Reset to Pending</span>
                     </button>
-                  </>
-                )}
-                
-                {data.status === 'active' && (
-                  <button 
-                    onClick={() => setConfirmModal({ show: true, action: 'suspended' })}
-                    className="flex items-center space-x-2 bg-white border border-orange-200 text-orange-600 hover:bg-orange-50 h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95"
-                  >
-                    <ShieldAlert size={18} />
-                    <span>Suspend Identity</span>
-                  </button>
-                )}
-
-                {data.status === 'suspended' && (
-                  <button 
-                    onClick={() => setConfirmModal({ show: true, action: 'active' })}
-                    className="flex items-center space-x-2 bg-primary text-white h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-primary/20 active:scale-95"
-                  >
-                    <CheckCircle size={18} />
-                    <span>Restore Identity</span>
-                  </button>
-                )}
-                
-                {data.status === 'rejected' && (
-                  <button 
-                    onClick={() => setConfirmModal({ show: true, action: 'pending' })}
-                    className="flex items-center space-x-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95"
-                  >
-                    <span>Reset to Pending</span>
-                  </button>
-                )}
-              </div>
-             </div>
-          </div>
+                  )}
+                </div>
+               </div>
+            </div>
+          )}
 
           {/* Activity Log */}
           <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden">

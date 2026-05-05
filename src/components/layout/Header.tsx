@@ -37,8 +37,6 @@ export const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
           <div className="flex items-center text-[11px] text-slate-400 font-bold uppercase tracking-[0.1em]">
             <Calendar size={12} className="mr-1.5 text-primary/60" />
             <span>{format(currentTime, 'EEEE, dd MMMM yyyy')}</span>
-            <span className="mx-2 opacity-30">•</span>
-            <span>Lusaka (CAT)</span>
           </div>
         </div>
       </div>

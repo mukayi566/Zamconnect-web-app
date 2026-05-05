@@ -94,28 +94,24 @@ export const Dashboard: React.FC = () => {
           label="Total Citizens"
           value={isLoading ? '...' : (stats?.total_citizens || 0).toLocaleString()}
           icon={Users}
-          trend={{ value: 12.5, isUp: true }}
           accentColor="primary"
         />
         <StatCard
           label="Pending Verification"
           value={isLoading ? '...' : (stats?.pending_count || 0).toLocaleString()}
           icon={UserPlus}
-          trend={{ value: 2.1, isUp: false }}
           accentColor="amber"
         />
         <StatCard
           label="Active Identities"
           value={isLoading ? '...' : (stats?.active_count || 0).toLocaleString()}
           icon={CheckCircle}
-          trend={{ value: 5.4, isUp: true }}
           accentColor="green"
         />
         <StatCard
           label="Verifications Today"
-          value="3,412"
+          value={isLoading ? '...' : (stats?.verifications_today || 0).toLocaleString()}
           icon={ShieldCheck}
-          trend={{ value: 8.2, isUp: true }}
           accentColor="primary"
         />
       </div>

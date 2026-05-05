@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
-import { Lock, Info, Eye, EyeOff, AlertCircle, ShieldCheck, ChevronRight, User } from 'lucide-react';
+import { Lock, Eye, EyeOff, AlertCircle, ShieldCheck, ChevronRight, User } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 
@@ -16,7 +16,6 @@ export const Login: React.FC = () => {
   const { setUser } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isDemoOpen, setIsDemoOpen] = useState(false);
 
   const handleLogin = async (values: any, { setSubmitting }: any) => {
     setError(null);
@@ -90,15 +89,6 @@ export const Login: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Footer info */}
-        <div className="relative z-10 pt-6 md:pt-0">
-          <div className="h-[1px] w-24 bg-secondary mb-6"></div>
-          <p className="text-sm text-white/50 font-medium">
-            © {new Date().getFullYear()} Government of the Republic of Zambia. <br className="hidden sm:block" />
-            Empowering the nation through digital transformation.
-          </p>
         </div>
       </div>
 
@@ -198,44 +188,7 @@ export const Login: React.FC = () => {
           </Formik>
 
           {/* Enhanced Demo Credentials */}
-          <div className="mt-6">
-            <button 
-              onClick={() => setIsDemoOpen(!isDemoOpen)}
-              className="w-full group rounded-2xl p-4 bg-slate-50 border-2 border-dashed border-slate-200 hover:border-primary/30 hover:bg-primary/5 transition-all flex items-center justify-between"
-            >
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center text-primary group-hover:rotate-12 transition-transform">
-                  <Info size={18} />
-                </div>
-                <span className="text-sm font-bold text-slate-600 uppercase tracking-wider">Demo Environment Credentials</span>
-              </div>
-              <div className={`transform transition-transform duration-300 ${isDemoOpen ? 'rotate-180' : ''}`}>
-                <ChevronRight size={18} className="text-slate-400 rotate-90" />
-              </div>
-            </button>
-            
-            {isDemoOpen && (
-              <div className="mt-4 p-6 bg-slate-50 rounded-2xl border-2 border-slate-100 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-4 bg-white rounded-xl shadow-sm border border-slate-100 group hover:border-primary/20 transition-colors">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Super Admin</p>
-                    <p className="text-sm font-mono text-slate-700 font-bold select-all">admin@zamid.gov.zm</p>
-                  </div>
-                  <div className="p-4 bg-white rounded-xl shadow-sm border border-slate-100 group hover:border-primary/20 transition-colors">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Registrar</p>
-                    <p className="text-sm font-mono text-slate-700 font-bold select-all">registrar@zamid.gov.zm</p>
-                  </div>
-                </div>
-                <div className="p-4 bg-primary/5 rounded-xl border-l-4 border-primary flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Common Access Key</p>
-                    <p className="text-sm font-mono text-primary font-black select-all">ZamID@2026!</p>
-                  </div>
-                  <div className="hidden sm:block p-1.5 px-3 bg-white font-bold text-[10px] text-primary rounded-lg shadow-sm">DEMO ONLY</div>
-                </div>
-              </div>
-            )}
-          </div>
+        
         </div>
       </div>
     </div>

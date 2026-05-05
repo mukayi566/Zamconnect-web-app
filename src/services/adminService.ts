@@ -6,6 +6,7 @@ export interface DashboardStats {
   pending_count: number;
   suspended_count: number;
   rejected_count: number;
+  verifications_today: number;
   recent_activity: any[];
 }
 
