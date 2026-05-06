@@ -117,13 +117,29 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
           () => {} // Low-level scan errors are ignored to avoid console spam
         );
       } catch (err) {
-        console.warn('Failed to start with environment camera, retrying with default...', err);
-        await scanner.start(
-          {}, 
-          config,
-          (decodedText) => onScanRef.current(decodedText),
-          () => {}
-        );
+        console.warn('Failed to start with environment camera, retrying with user camera...', err);
+        try {
+          await scanner.start(
+            { facingMode: 'user' }, 
+            config,
+            (decodedText) => onScanRef.current(decodedText),
+            () => {}
+          );
+        } catch (secondErr) {
+          console.warn('Failed to start with user camera, retrying with default...', secondErr);
+          // If facingMode fails, we need to get the camera ID
+          const cameras = await Html5Qrcode.getCameras();
+          if (cameras && cameras.length > 0) {
+            await scanner.start(
+              cameras[0].id,
+              config,
+              (decodedText) => onScanRef.current(decodedText),
+              () => {}
+            );
+          } else {
+            throw new Error('No cameras available');
+          }
+        }
       }
       
       console.log('Scanner started successfully');
