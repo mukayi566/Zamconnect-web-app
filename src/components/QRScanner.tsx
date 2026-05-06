@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { X, Camera, ShieldCheck, AlertCircle, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
 
@@ -11,100 +11,104 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [needsPermission, setNeedsPermission] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [zoomCapabilities, setZoomCapabilities] = useState<{ min: number; max: number; step: number } | null>(null);
   const trackRef = useRef<MediaStreamTrack | null>(null);
   const containerId = 'qr-reader';
 
-  useEffect(() => {
-    let mounted = true;
-
-    const startScanner = async () => {
+  const startScanner = useCallback(async () => {
+    try {
+      setIsInitializing(true);
+      setError(null);
+      setNeedsPermission(false);
+      
+      // Check if we already have permission or need to ask
       try {
-        setIsInitializing(true);
-        setError(null);
-        
-        // Slight delay to ensure DOM is ready
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        if (!mounted) return;
-
-        const scanner = new Html5Qrcode(containerId);
-        scannerRef.current = scanner;
-        
-        await scanner.start(
-          { 
-            facingMode: 'environment',
-            width: { min: 640, ideal: 1280, max: 1920 },
-            height: { min: 480, ideal: 720, max: 1080 }
-          },
-          {
-            fps: 10,
-            qrbox: (viewfinderWidth, viewfinderHeight) => {
-              const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-              const qrboxSize = Math.floor(minEdge * 0.7);
-              return {
-                width: qrboxSize,
-                height: qrboxSize
-              };
-            },
-            aspectRatio: 1.0,
-          },
-          (decodedText) => {
-            if (mounted) {
-              onScan(decodedText);
-              // stopScanner will be called by cleanup or manually if needed
-            }
-          },
-          () => {
-            // Silently ignore scan errors
-          }
-        );
-        
-        if (mounted) {
-          setIsInitializing(false);
-          
-          // Try to get camera capabilities for zoom
-          try {
-            const videoElement = document.querySelector(`#${containerId} video`) as HTMLVideoElement;
-            if (videoElement && videoElement.srcObject instanceof MediaStream) {
-              const track = videoElement.srcObject.getVideoTracks()[0];
-              const capabilities = track.getCapabilities() as any;
-              
-              if (capabilities.zoom) {
-                setZoomCapabilities({
-                  min: capabilities.zoom.min,
-                  max: capabilities.zoom.max,
-                  step: capabilities.zoom.step || 0.1
-                });
-                setZoom(capabilities.zoom.min);
-                trackRef.current = track;
-              }
-            }
-          } catch (err) {
-            console.warn('Camera zoom not supported or failed to initialize:', err);
-          }
+        const cameras = await Html5Qrcode.getCameras();
+        if (!cameras || cameras.length === 0) {
+          throw new Error('No cameras found on this device.');
         }
       } catch (err: any) {
-        console.error('Failed to start scanner:', err);
-        if (mounted) {
-          setError(err?.message || 'Could not access camera. Please ensure permissions are granted.');
+        if (err.toString().includes('NotAllowedError') || err.toString().includes('Permission denied')) {
+          setNeedsPermission(true);
           setIsInitializing(false);
+          return;
         }
       }
-    };
 
+      // Slight delay to ensure DOM is ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const scanner = new Html5Qrcode(containerId);
+      scannerRef.current = scanner;
+      
+      await scanner.start(
+        { 
+          facingMode: 'environment',
+          width: { min: 640, ideal: 1280, max: 1920 },
+          height: { min: 480, ideal: 720, max: 1080 }
+        },
+        {
+          fps: 10,
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            const qrboxSize = Math.floor(minEdge * 0.7);
+            return {
+              width: qrboxSize,
+              height: qrboxSize
+            };
+          },
+          aspectRatio: 1.0,
+        },
+        (decodedText) => {
+          onScan(decodedText);
+        },
+        () => {
+          // Silently ignore scan errors
+        }
+      );
+      
+      setIsInitializing(false);
+      
+      // Try to get camera capabilities for zoom
+      try {
+        const videoElement = document.querySelector(`#${containerId} video`) as HTMLVideoElement;
+        if (videoElement && videoElement.srcObject instanceof MediaStream) {
+          const track = videoElement.srcObject.getVideoTracks()[0];
+          const capabilities = track.getCapabilities() as any;
+          
+          if (capabilities.zoom) {
+            setZoomCapabilities({
+              min: capabilities.zoom.min,
+              max: capabilities.zoom.max,
+              step: capabilities.zoom.step || 0.1
+            });
+            setZoom(capabilities.zoom.min);
+            trackRef.current = track;
+          }
+        }
+      } catch (err) {
+        console.warn('Camera zoom not supported or failed to initialize:', err);
+      }
+    } catch (err: any) {
+      console.error('Failed to start scanner:', err);
+      setError(err?.message || 'Could not access camera. Please ensure permissions are granted.');
+      setIsInitializing(false);
+    }
+  }, [onScan, containerId]);
+
+  useEffect(() => {
     startScanner();
 
     return () => {
-      mounted = false;
       if (scannerRef.current) {
         if (scannerRef.current.isScanning) {
           scannerRef.current.stop().catch(err => console.error('Error stopping scanner:', err));
         }
       }
     };
-  }, []);
+  }, [startScanner]);
 
   const handleRetry = () => {
     window.location.reload(); // Simple way to reset everything if it hangs
@@ -157,7 +161,30 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
             {isInitializing && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 space-y-4">
                 <div className="w-12 h-12 border-4 border-emerald-600/20 border-t-emerald-600 rounded-full animate-spin"></div>
-                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em]">Initializing Optics...</p>
+                <div className="text-center space-y-2">
+                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em]">Requesting Permission...</p>
+                  <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Please allow camera access in your browser</p>
+                </div>
+              </div>
+            )}
+
+            {needsPermission && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 p-8 text-center space-y-6">
+                <div className="w-16 h-16 bg-emerald-600/20 rounded-3xl flex items-center justify-center text-emerald-600 animate-pulse">
+                  <Camera size={32} />
+                </div>
+                <div className="space-y-2">
+                  <h4 className="text-white font-black uppercase text-sm tracking-widest">Camera Access Required</h4>
+                  <p className="text-slate-400 text-xs font-medium leading-relaxed">
+                    To scan digital identity tokens, we need permission to use your device's camera.
+                  </p>
+                </div>
+                <button 
+                  onClick={() => startScanner()}
+                  className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-900/20"
+                >
+                  Grant Camera Access
+                </button>
               </div>
             )}
 
