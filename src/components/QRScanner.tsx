@@ -27,18 +27,31 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
       try {
         const cameras = await Html5Qrcode.getCameras();
         if (!cameras || cameras.length === 0) {
-          throw new Error('No cameras found on this device.');
+          setError('No cameras found on this device.');
+          setIsInitializing(false);
+          return;
         }
       } catch (err: any) {
-        if (err.toString().includes('NotAllowedError') || err.toString().includes('Permission denied')) {
+        const errStr = err.toString();
+        if (errStr.includes('NotAllowedError') || errStr.includes('Permission denied')) {
           setNeedsPermission(true);
           setIsInitializing(false);
           return;
         }
+        // If it's another error, we'll try to proceed to scanner.start anyway
       }
 
-      // Slight delay to ensure DOM is ready
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Ensure any existing scanner is stopped before starting a new one
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        try {
+          await scannerRef.current.stop();
+        } catch (e) {
+          // Ignore stop errors
+        }
+      }
+
+      // Slight delay to ensure DOM is ready and previous streams are released
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       const scanner = new Html5Qrcode(containerId);
       scannerRef.current = scanner;
@@ -46,8 +59,9 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
       await scanner.start(
         { 
           facingMode: 'environment',
-          width: { min: 640, ideal: 1280, max: 1920 },
-          height: { min: 480, ideal: 720, max: 1080 }
+          // Relaxed constraints for better compatibility
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         },
         {
           fps: 10,
@@ -93,7 +107,15 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
       }
     } catch (err: any) {
       console.error('Failed to start scanner:', err);
-      setError(err?.message || 'Could not access camera. Please ensure permissions are granted.');
+      const errorMessage = err?.message || err?.toString() || '';
+      
+      if (errorMessage.includes('NotAllowedError') || errorMessage.includes('Permission denied')) {
+        setNeedsPermission(true);
+      } else if (errorMessage.includes('NotReadableError') || errorMessage.includes('Could not access camera')) {
+        setError('Camera is already in use by another application or tab. Please close other camera apps and try again.');
+      } else {
+        setError('Could not access camera. Please ensure permissions are granted and no other app is using it.');
+      }
       setIsInitializing(false);
     }
   }, [onScan, containerId]);
@@ -111,7 +133,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
   }, [startScanner]);
 
   const handleRetry = () => {
-    window.location.reload(); // Simple way to reset everything if it hangs
+    startScanner();
   };
 
   const handleZoomChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
