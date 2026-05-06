@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   CheckCircle2, 
   User, 
@@ -53,7 +53,7 @@ export const VerifyTool: React.FC = () => {
     }
   };
 
-  const verifyByQR = async (e?: React.FormEvent, token?: string) => {
+  const verifyByQR = useCallback(async (e?: React.FormEvent, token?: string) => {
     if (e) e.preventDefault();
     const tokenToVerify = token || qrToken;
     if (!tokenToVerify) return;
@@ -70,13 +70,13 @@ export const VerifyTool: React.FC = () => {
     } finally {
       setIsVerifying(false);
     }
-  };
+  }, [qrToken]);
 
-  const handleQRScan = (token: string) => {
+  const handleQRScan = useCallback((token: string) => {
     setQrToken(token);
     setIsScanning(false);
     verifyByQR(undefined, token);
-  };
+  }, [verifyByQR]);
 
   const handleNfcScan = async () => {
     if (!webNfcService.isSupported()) {

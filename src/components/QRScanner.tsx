@@ -14,11 +14,21 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
   const [needsPermission, setNeedsPermission] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [zoomCapabilities, setZoomCapabilities] = useState<{ min: number; max: number; step: number } | null>(null);
+  const isTransitioning = useRef(false);
+  const onScanRef = useRef(onScan);
   const trackRef = useRef<MediaStreamTrack | null>(null);
   const containerId = 'qr-reader';
 
+  // Keep onScanRef up to date
+  useEffect(() => {
+    onScanRef.current = onScan;
+  }, [onScan]);
+
   const startScanner = useCallback(async () => {
+    if (isTransitioning.current) return;
+    
     try {
+      isTransitioning.current = true;
       setIsInitializing(true);
       setError(null);
       setNeedsPermission(false);
@@ -27,6 +37,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
       if (!window.isSecureContext && window.location.hostname !== 'localhost') {
         setError('Camera access requires a secure (HTTPS) connection. Please ensure you are using a secure URL.');
         setIsInitializing(false);
+        isTransitioning.current = false;
         return;
       }
 
@@ -34,6 +45,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setError('Your browser does not support camera access or it is disabled. Please use a modern browser like Chrome, Safari, or Edge.');
         setIsInitializing(false);
+        isTransitioning.current = false;
         return;
       }
 
@@ -43,6 +55,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
         if (!cameras || cameras.length === 0) {
           setError('No cameras found on this device. Please connect a camera and try again.');
           setIsInitializing(false);
+          isTransitioning.current = false;
           return;
         }
       } catch (err: any) {
@@ -50,23 +63,32 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
         if (errStr.includes('notallowederror') || errStr.includes('permission denied') || errStr.includes('permission_denied')) {
           setNeedsPermission(true);
           setIsInitializing(false);
+          isTransitioning.current = false;
           return;
         }
-        // For other errors during getCameras, we'll still try to proceed to scanner.start
       }
 
-      // Ensure any existing scanner is stopped before starting a new one
-      if (scannerRef.current && scannerRef.current.isScanning) {
+      // Ensure any existing scanner is stopped and cleared before starting a new one
+      if (scannerRef.current) {
         try {
-          await scannerRef.current.stop();
+          if (scannerRef.current.isScanning) {
+            await scannerRef.current.stop();
+          }
+          scannerRef.current.clear();
         } catch (e) {
-          // Ignore stop errors
+          console.warn('Error during scanner cleanup:', e);
         }
       }
 
       // Slight delay to ensure DOM is ready and previous streams are released
       await new Promise(resolve => setTimeout(resolve, 300));
       
+      // Re-check container existence
+      if (!document.getElementById(containerId)) {
+        isTransitioning.current = false;
+        return;
+      }
+
       const scanner = new Html5Qrcode(containerId);
       scannerRef.current = scanner;
       
@@ -92,7 +114,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
             height: { ideal: 720 }
           },
           config,
-          (decodedText) => onScan(decodedText),
+          (decodedText) => onScanRef.current(decodedText),
           () => {} // Ignore scan errors
         );
       } catch (err) {
@@ -101,12 +123,13 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
         await scanner.start(
           {}, 
           config,
-          (decodedText) => onScan(decodedText),
+          (decodedText) => onScanRef.current(decodedText),
           () => {}
         );
       }
       
       setIsInitializing(false);
+      isTransitioning.current = false;
       
       // Try to get camera capabilities for zoom (slight delay to ensure video is playing)
       setTimeout(async () => {
@@ -132,6 +155,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
       }, 1000);
     } catch (err: any) {
       console.error('Failed to start scanner:', err);
+      isTransitioning.current = false;
       const errorMessage = (err?.message || err?.toString() || '').toLowerCase();
       
       if (errorMessage.includes('notallowederror') || errorMessage.includes('permission denied')) {
@@ -144,20 +168,23 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
         setError('The requested camera resolution is not supported by your hardware.');
       } else if (errorMessage.includes('securityerror')) {
         setError('Camera access was blocked due to security settings or insecure context.');
-      } else {
+      } else if (!errorMessage.includes('already under transition')) {
         setError(`Camera access failed: ${err?.message || 'Unknown Error'}. Please ensure permissions are granted in browser settings.`);
       }
       setIsInitializing(false);
     }
-  }, [onScan, containerId]);
+  }, [containerId]);
 
   useEffect(() => {
     startScanner();
 
     return () => {
       if (scannerRef.current) {
-        if (scannerRef.current.isScanning) {
-          scannerRef.current.stop().catch(err => console.error('Error stopping scanner:', err));
+        const scanner = scannerRef.current;
+        if (scanner.isScanning) {
+          scanner.stop().then(() => scanner.clear()).catch(err => console.error('Error stopping scanner:', err));
+        } else {
+          scanner.clear();
         }
       }
     };
