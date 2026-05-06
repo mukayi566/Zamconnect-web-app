@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
-import { Lock, Eye, EyeOff, AlertCircle, ShieldCheck, ChevronRight, User } from 'lucide-react';
+import { Lock, Eye, EyeOff, AlertCircle, ChevronRight } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 
@@ -58,36 +58,23 @@ export const Login: React.FC = () => {
         </div>
 
         {/* Brand Content */}
-        <div className="relative z-10">
-          <div className="flex items-center space-x-4 mb-8 group cursor-pointer">
-            <div className="w-16 h-16 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 overflow-hidden">
-              <img src="/login-logo.jpeg" alt="ZamID Logo" className="w-full h-full object-contain" />
-            </div>
-            <div>
+        <div className="relative z-10 flex flex-col items-center text-center">
+          <div className="flex flex-col items-center mb-8 group cursor-pointer">
+            <div className="w-32 h-32 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 overflow-hidden">
+              <img src="/login-logo-mobile.png" alt="ZamID Logo" className="w-full h-full object-contain" />
             </div>
           </div>
 
           <div className="max-w-xl space-y-8">
-            <h1 className="text-4xl lg:text-5xl font-black leading-[1.1] tracking-tight">
+            <h1 className="text-4xl lg:text-5xl font-black text-white leading-[1.1] tracking-tight">
               Securing the <br />
-              <span className="text-secondary drop-shadow-lg">Zambian Identity</span> <br />
+              <span className="text-secondary drop-shadow-lg te">Zambian Identity</span> <br />
               for a Digital Era.
             </h1>
             <p className="text-base text-white/80 leading-relaxed font-light">
               Zambia's next-generation national digital identity platform. 
               Connecting citizens to essential services with speed, security, and integrity.
             </p>
-            
-            <div className="flex flex-wrap gap-3 pt-2">
-              <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/20">
-                <ShieldCheck size={18} className="text-secondary" />
-                <span className="text-sm font-medium">Bank-grade Security</span>
-              </div>
-              <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/20">
-                <User size={18} className="text-secondary" />
-                <span className="text-sm font-medium">18M+ Citizens</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
