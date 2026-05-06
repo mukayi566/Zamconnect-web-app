@@ -95,25 +95,22 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
       }
 
       const config = {
-        fps: 20, // Increased FPS for faster recognition
+        fps: 15,
         qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
           const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          // Larger qrbox for mobile to help with smaller codes
-          const qrboxSize = Math.floor(minEdge * 0.8);
-          return {
-            width: qrboxSize,
-            height: qrboxSize
-          };
+          const qrboxSize = Math.floor(minEdge * 0.75);
+          return { width: qrboxSize, height: qrboxSize };
         },
-        aspectRatio: 1.0, // Force square to match UI
+        aspectRatio: 1.0,
         disableFlip: false,
       };
 
+      // Relaxed constraints — no min/max so the browser can always find a valid mode.
+      // Strict constraints (e.g. min 640) are the most common cause of black screens.
       const videoConstraints = {
-        facingMode: 'environment',
-        width: { min: 640, ideal: 1920, max: 1920 },
-        height: { min: 480, ideal: 1080, max: 1080 },
-        frameRate: { ideal: 30 }
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
       };
 
       try {
@@ -296,7 +293,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
           <div className="relative aspect-square w-full rounded-[2rem] overflow-hidden bg-slate-950 border-4 border-slate-100 shadow-inner">
             <div 
               id={containerId} 
-              className="w-full h-full"
+              style={{ width: '100%', height: '100%', position: 'relative' }}
             ></div>
             
             {isInitializing && (
@@ -446,6 +443,27 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
         }
         .animate-scan {
           animation: scan 2s linear infinite;
+        }
+        /* Force html5-qrcode's injected video to fill its container */
+        #qr-reader video {
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: cover !important;
+          position: absolute !important;
+          top: 0 !important;
+          left: 0 !important;
+        }
+        #qr-reader {
+          border: none !important;
+          padding: 0 !important;
+        }
+        #qr-reader__scan_region {
+          width: 100% !important;
+          height: 100% !important;
+          min-height: unset !important;
+        }
+        #qr-reader__scan_region img {
+          display: none !important;
         }
       `}</style>
     </div>
