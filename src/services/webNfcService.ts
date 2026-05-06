@@ -37,12 +37,23 @@ export const webNfcService = {
           const { message } = event;
           
           for (const record of message.records) {
-            // ZamID tokens are stored as text records
-            if (record.recordType === "text") {
+            // ZamID tokens are stored as text records or URI records
+            if (record.recordType === "text" || record.recordType === "url") {
               const textDecoder = new TextDecoder(record.encoding || 'utf-8');
-              const token = textDecoder.decode(record.data);
-              if (token && token.trim().length > 0) {
-                resolve(token.trim());
+              const data = textDecoder.decode(record.data);
+              
+              // If it's a URL (like https://zamid.gov.zm/v/TOKEN), extract the token
+              if (record.recordType === "url" && data.includes('/v/')) {
+                const token = data.split('/v/').pop();
+                if (token) {
+                  resolve(token.trim());
+                  return;
+                }
+              }
+
+              // Direct JWT token in text record
+              if (data && data.trim().length > 20) { 
+                resolve(data.trim());
                 return;
               }
             }

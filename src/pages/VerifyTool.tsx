@@ -276,57 +276,78 @@ export const VerifyTool: React.FC = () => {
             )}
 
             {activeTab === 'nfc' && (
-              <div className="space-y-8 text-center py-10">
-                <div className="flex justify-center mb-8">
-                  <div className="relative">
-                    <div className={`w-32 h-32 bg-emerald-600/10 rounded-full flex items-center justify-center ${isNfcScanning ? 'animate-pulse' : ''}`}>
-                      <Wifi size={64} className="text-emerald-600" />
+              <div className="space-y-10 text-center py-6">
+                <div className="flex justify-center mb-12">
+                  <div className="relative group">
+                    {/* Phone-to-Phone Tap Illustration */}
+                    <div className="flex items-center -space-x-12">
+                      <div className="w-32 h-56 bg-slate-100 rounded-3xl border-4 border-slate-200 shadow-sm flex items-center justify-center relative transform -rotate-12 translate-x-4 opacity-50">
+                        <Smartphone size={32} className="text-slate-300" />
+                        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-8 h-1 bg-slate-200 rounded-full" />
+                      </div>
+                      
+                      <div className={`w-32 h-56 bg-white rounded-3xl border-4 ${isNfcScanning ? 'border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.3)]' : 'border-slate-900'} shadow-xl flex items-center justify-center relative z-10 transition-all duration-500`}>
+                        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-8 h-1 bg-slate-800 rounded-full" />
+                        {isNfcScanning ? (
+                          <div className="flex flex-col items-center space-y-4">
+                            <div className="relative">
+                               <Wifi size={40} className="text-emerald-500 animate-pulse" />
+                               <div className="absolute inset-0 border-2 border-emerald-500 rounded-full animate-ping opacity-25"></div>
+                            </div>
+                            <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">Listening...</span>
+                          </div>
+                        ) : (
+                          <Smartphone size={40} className="text-slate-900" />
+                        )}
+                      </div>
                     </div>
+                    
+                    {/* Scan Rays */}
                     {isNfcScanning && (
-                      <div className="absolute inset-0 border-4 border-emerald-600 rounded-full animate-ping opacity-25"></div>
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border border-emerald-500/20 rounded-full animate-[ping_3s_linear_infinite] pointer-events-none" />
                     )}
                   </div>
                 </div>
 
-                <div className="space-y-4 max-w-sm mx-auto">
+                <div className="space-y-4 max-w-sm mx-auto px-4">
                   <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-                    {isNfcScanning ? 'Scanning for Card...' : 'NFC Identity Reader'}
+                    {isNfcScanning ? 'Awaiting Proximity Link' : 'Secure Proximity Verify'}
                   </h3>
                   <p className="text-slate-500 font-medium text-sm leading-relaxed">
                     {isNfcScanning 
-                      ? 'Hold the Digital ZamID card near the back of your device to read the identity token.'
-                      : 'Verify digital identity cards using the built-in NFC reader on your device.'}
+                      ? 'Align the top of your device with the back of the mobile ID being presented.'
+                      : 'Place the presenter’s mobile device or physical ZamID card against your phone’s NFC sensor.'}
                   </p>
                 </div>
 
-                <div className="pt-6">
+                <div className="pt-4 px-6">
                   {!isNfcScanning ? (
                     <button
                       onClick={handleNfcScan}
-                      className="inline-flex items-center space-x-3 px-10 h-16 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-lg hover:bg-emerald-700 transition-all"
+                      className="w-full inline-flex items-center justify-center space-x-3 h-16 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-lg hover:bg-emerald-700 transition-all active:scale-95"
                     >
-                      <Smartphone size={20} />
-                      <span>Start NFC Scan</span>
+                      <Wifi size={20} />
+                      <span>Initiate Reader Node</span>
                     </button>
                   ) : (
-                    <div className="flex flex-col items-center space-y-4">
-                      <div className="flex items-center space-x-2 bg-slate-100 px-4 py-2 rounded-xl text-slate-500 font-bold text-[10px] uppercase tracking-widest animate-bounce">
-                        <Smartphone size={14} className="animate-pulse" />
-                        <span>Awaiting Card Tap...</span>
+                    <div className="flex flex-col items-center space-y-6">
+                      <div className="flex items-center space-x-3 bg-emerald-50 px-6 py-3 rounded-2xl border border-emerald-100 text-emerald-700 font-black text-xs uppercase tracking-widest">
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                        <span>NFC Module Active</span>
                       </div>
                       <button 
                         onClick={() => setIsNfcScanning(false)}
-                        className="text-xs font-black text-slate-400 uppercase tracking-widest hover:text-red-500 transition-colors"
+                        className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-red-500 transition-colors border-b border-transparent hover:border-red-200"
                       >
-                        Cancel Scanning
+                        Terminate Scanning Session
                       </button>
                     </div>
                   )}
                 </div>
 
-                <div className="mt-12 flex items-center justify-center space-x-2 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 p-4 rounded-2xl border border-slate-100 max-w-xs mx-auto">
+                <div className="mt-8 flex items-center justify-center space-x-3 text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 mx-8 p-4 rounded-2xl border border-slate-100">
                    <ShieldCheck size={16} className="text-emerald-600" />
-                   <span>Enterprise Grade NFC Protocol</span>
+                   <span className="flex-1">GIDI Encrypted Proximity Protocol v2.4</span>
                 </div>
               </div>
             )}
