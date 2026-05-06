@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { X, Camera, ShieldCheck, AlertCircle, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
+import { X, Camera, ShieldCheck, AlertCircle, RefreshCw, ZoomIn, ZoomOut, Zap, ZapOff } from 'lucide-react';
 
 interface QRScannerProps {
   onScan: (data: string) => void;
@@ -14,6 +14,8 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
   const [needsPermission, setNeedsPermission] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [zoomCapabilities, setZoomCapabilities] = useState<{ min: number; max: number; step: number } | null>(null);
+  const [torchEnabled, setTorchEnabled] = useState(false);
+  const [hasTorch, setHasTorch] = useState(false);
   const isTransitioning = useRef(false);
   const onScanRef = useRef(onScan);
   const trackRef = useRef<MediaStreamTrack | null>(null);
@@ -93,22 +95,31 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
       }
 
       const config = {
-        fps: 15, // Slightly higher FPS for smoother experience
+        fps: 20, // Increased FPS for faster recognition
         qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
           const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          const qrboxSize = Math.floor(minEdge * 0.7);
+          // Larger qrbox for mobile to help with smaller codes
+          const qrboxSize = Math.floor(minEdge * 0.8);
           return {
             width: qrboxSize,
             height: qrboxSize
           };
         },
-        // Remove hard aspect ratio constraint for better compatibility
+        aspectRatio: 1.0, // Force square to match UI
+        disableFlip: false,
+      };
+
+      const videoConstraints = {
+        facingMode: 'environment',
+        width: { min: 640, ideal: 1920, max: 1920 },
+        height: { min: 480, ideal: 1080, max: 1080 },
+        frameRate: { ideal: 30 }
       };
 
       try {
         console.log('Attempting to start camera with environment facing mode...');
         await scanner.start(
-          { facingMode: 'environment' },
+          videoConstraints,
           config,
           (decodedText) => {
             console.log('QR Code decoded successfully');
@@ -159,12 +170,22 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
                 max: capabilities.zoom.max,
                 step: capabilities.zoom.step || 0.1
               });
-              setZoom(capabilities.zoom.min);
+              // Set a slight initial zoom if possible to help with framing
+              const initialZoom = Math.min(capabilities.zoom.max, 1.2);
+              setZoom(initialZoom);
               trackRef.current = track;
+              
+              await track.applyConstraints({
+                advanced: [{ zoom: initialZoom }]
+              } as any);
+            }
+
+            if (capabilities.torch) {
+              setHasTorch(true);
             }
           }
         } catch (err) {
-          console.warn('Camera zoom capabilities check failed:', err);
+          console.warn('Camera capabilities check failed:', err);
         }
       }, 1000);
 
@@ -220,6 +241,20 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
     }
   };
 
+  const toggleTorch = async () => {
+    if (trackRef.current && hasTorch) {
+      try {
+        const newTorchState = !torchEnabled;
+        await trackRef.current.applyConstraints({
+          advanced: [{ torch: newTorchState }]
+        } as any);
+        setTorchEnabled(newTorchState);
+      } catch (err) {
+        console.error('Failed to toggle torch:', err);
+      }
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/95 backdrop-blur-md animate-in fade-in duration-300 p-4">
       <div className="relative w-full max-w-lg bg-white rounded-[3rem] overflow-hidden shadow-2xl border border-slate-100">
@@ -234,12 +269,26 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Mobile Identity Verification</p>
             </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-3 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-2xl transition-all"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center space-x-2">
+            {hasTorch && !error && !isInitializing && (
+              <button
+                onClick={toggleTorch}
+                className={`p-3 rounded-2xl transition-all border ${
+                  torchEnabled 
+                    ? 'bg-amber-100 text-amber-600 border-amber-200' 
+                    : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'
+                }`}
+              >
+                {torchEnabled ? <Zap size={20} /> : <ZapOff size={20} />}
+              </button>
+            )}
+            <button 
+              onClick={onClose}
+              className="p-3 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-2xl transition-all"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Scanner Area */}
