@@ -64,10 +64,6 @@ export const RegistrarDashboard: React.FC = () => {
             Manage citizen enrolments and verify identity credentials.
           </p>
         </div>
-        <div className="bg-white border border-slate-100 px-4 py-2 rounded-2xl shadow-sm flex items-center space-x-3">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Registry Node: Online</span>
-        </div>
       </div>
 
       {/* ── Stats Grid ── */}

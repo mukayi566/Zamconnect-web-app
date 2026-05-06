@@ -25,75 +25,75 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
   }, [onScan]);
 
   const startScanner = useCallback(async () => {
-    if (isTransitioning.current) return;
+    if (isTransitioning.current) {
+      console.warn('Scanner is already transitioning, ignoring start request.');
+      return;
+    }
     
+    console.log('Starting scanner initialization...');
     try {
       isTransitioning.current = true;
       setIsInitializing(true);
       setError(null);
       setNeedsPermission(false);
       
-      // 1. Check for secure context (Required for MediaDevices)
+      // 1. Check for secure context
       if (!window.isSecureContext && window.location.hostname !== 'localhost') {
-        setError('Camera access requires a secure (HTTPS) connection. Please ensure you are using a secure URL.');
-        setIsInitializing(false);
-        isTransitioning.current = false;
+        const msg = 'Camera access requires a secure (HTTPS) connection.';
+        setError(msg);
+        console.error(msg);
         return;
       }
 
       // 2. Check if mediaDevices API is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setError('Your browser does not support camera access or it is disabled. Please use a modern browser like Chrome, Safari, or Edge.');
-        setIsInitializing(false);
-        isTransitioning.current = false;
+        const msg = 'Your browser does not support camera access or it is disabled.';
+        setError(msg);
+        console.error(msg);
         return;
       }
 
-      // 3. Pre-check for cameras and permissions
+      // 3. Pre-check for cameras
       try {
         const cameras = await Html5Qrcode.getCameras();
         if (!cameras || cameras.length === 0) {
-          setError('No cameras found on this device. Please connect a camera and try again.');
-          setIsInitializing(false);
-          isTransitioning.current = false;
+          setError('No cameras found on this device.');
           return;
         }
+        console.log(`Found ${cameras.length} cameras.`);
       } catch (err: any) {
+        console.warn('Error fetching cameras:', err);
         const errStr = err.toString().toLowerCase();
-        if (errStr.includes('notallowederror') || errStr.includes('permission denied') || errStr.includes('permission_denied')) {
+        if (errStr.includes('notallowederror') || errStr.includes('permission denied')) {
           setNeedsPermission(true);
-          setIsInitializing(false);
-          isTransitioning.current = false;
           return;
         }
       }
 
-      // Ensure any existing scanner is stopped and cleared before starting a new one
-      if (scannerRef.current) {
-        try {
-          if (scannerRef.current.isScanning) {
-            await scannerRef.current.stop();
-          }
-          scannerRef.current.clear();
-        } catch (e) {
-          console.warn('Error during scanner cleanup:', e);
-        }
-      }
-
-      // Slight delay to ensure DOM is ready and previous streams are released
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Re-check container existence
-      if (!document.getElementById(containerId)) {
-        isTransitioning.current = false;
+      // Ensure DOM element is ready
+      const container = document.getElementById(containerId);
+      if (!container) {
+        console.error('Scanner container not found in DOM');
         return;
       }
 
-      const scanner = new Html5Qrcode(containerId);
-      scannerRef.current = scanner;
-      
+      // Reuse or create scanner instance
+      if (!scannerRef.current) {
+        console.log('Creating new Html5Qrcode instance');
+        scannerRef.current = new Html5Qrcode(containerId, { verbose: true });
+      }
+
+      const scanner = scannerRef.current;
+
+      // If already scanning, stop it first
+      if (scanner.isScanning) {
+        console.log('Scanner already running, stopping before restart...');
+        await scanner.stop();
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
       const config = {
-        fps: 10,
+        fps: 15, // Slightly higher FPS for smoother experience
         qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
           const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
           const qrboxSize = Math.floor(minEdge * 0.7);
@@ -102,24 +102,22 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
             height: qrboxSize
           };
         },
-        aspectRatio: 1.0,
+        // Remove hard aspect ratio constraint for better compatibility
       };
 
       try {
-        // Try with environment camera and ideal resolution
+        console.log('Attempting to start camera with environment facing mode...');
         await scanner.start(
-          { 
-            facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
+          { facingMode: 'environment' },
           config,
-          (decodedText) => onScanRef.current(decodedText),
-          () => {} // Ignore scan errors
+          (decodedText) => {
+            console.log('QR Code decoded successfully');
+            onScanRef.current(decodedText);
+          },
+          () => {} // Low-level scan errors are ignored to avoid console spam
         );
       } catch (err) {
-        console.warn('Failed to start with environment camera/resolution, retrying with defaults...', err);
-        // Fallback: Try with any camera and no specific resolution
+        console.warn('Failed to start with environment camera, retrying with default...', err);
         await scanner.start(
           {}, 
           config,
@@ -128,13 +126,13 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
         );
       }
       
+      console.log('Scanner started successfully');
       setIsInitializing(false);
-      isTransitioning.current = false;
       
-      // Try to get camera capabilities for zoom (slight delay to ensure video is playing)
+      // Try to get camera capabilities for zoom
       setTimeout(async () => {
         try {
-          const videoElement = document.querySelector(`#${containerId} video`) as HTMLVideoElement;
+          const videoElement = container.querySelector('video') as HTMLVideoElement;
           if (videoElement && videoElement.srcObject instanceof MediaStream) {
             const track = videoElement.srcObject.getVideoTracks()[0];
             const capabilities = track.getCapabilities() as any;
@@ -153,25 +151,23 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
           console.warn('Camera zoom capabilities check failed:', err);
         }
       }, 1000);
+
     } catch (err: any) {
       console.error('Failed to start scanner:', err);
-      isTransitioning.current = false;
       const errorMessage = (err?.message || err?.toString() || '').toLowerCase();
       
       if (errorMessage.includes('notallowederror') || errorMessage.includes('permission denied')) {
         setNeedsPermission(true);
-      } else if (errorMessage.includes('notreadableerror') || errorMessage.includes('trackstarterror') || errorMessage.includes('could not access camera')) {
-        setError('Camera is already in use by another application or tab. Please close other camera apps and try again.');
-      } else if (errorMessage.includes('notfounderror') || errorMessage.includes('devicesnotfounderror')) {
-        setError('No camera was found on your device.');
-      } else if (errorMessage.includes('overconstrainederror')) {
-        setError('The requested camera resolution is not supported by your hardware.');
-      } else if (errorMessage.includes('securityerror')) {
-        setError('Camera access was blocked due to security settings or insecure context.');
+      } else if (errorMessage.includes('notreadableerror') || errorMessage.includes('trackstarterror')) {
+        setError('Camera is in use or hardware error occurred. Please refresh or close other apps.');
+      } else if (errorMessage.includes('notfounderror')) {
+        setError('No camera found.');
       } else if (!errorMessage.includes('already under transition')) {
-        setError(`Camera access failed: ${err?.message || 'Unknown Error'}. Please ensure permissions are granted in browser settings.`);
+        setError(`Camera error: ${err?.message || 'Check permissions'}`);
       }
       setIsInitializing(false);
+    } finally {
+      isTransitioning.current = false;
     }
   }, [containerId]);
 
