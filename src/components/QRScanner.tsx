@@ -23,22 +23,36 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
       setError(null);
       setNeedsPermission(false);
       
-      // Check if we already have permission or need to ask
+      // 1. Check for secure context (Required for MediaDevices)
+      if (!window.isSecureContext && window.location.hostname !== 'localhost') {
+        setError('Camera access requires a secure (HTTPS) connection. Please ensure you are using a secure URL.');
+        setIsInitializing(false);
+        return;
+      }
+
+      // 2. Check if mediaDevices API is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setError('Your browser does not support camera access or it is disabled. Please use a modern browser like Chrome, Safari, or Edge.');
+        setIsInitializing(false);
+        return;
+      }
+
+      // 3. Pre-check for cameras and permissions
       try {
         const cameras = await Html5Qrcode.getCameras();
         if (!cameras || cameras.length === 0) {
-          setError('No cameras found on this device.');
+          setError('No cameras found on this device. Please connect a camera and try again.');
           setIsInitializing(false);
           return;
         }
       } catch (err: any) {
-        const errStr = err.toString();
-        if (errStr.includes('NotAllowedError') || errStr.includes('Permission denied')) {
+        const errStr = err.toString().toLowerCase();
+        if (errStr.includes('notallowederror') || errStr.includes('permission denied') || errStr.includes('permission_denied')) {
           setNeedsPermission(true);
           setIsInitializing(false);
           return;
         }
-        // If it's another error, we'll try to proceed to scanner.start anyway
+        // For other errors during getCameras, we'll still try to proceed to scanner.start
       }
 
       // Ensure any existing scanner is stopped before starting a new one
@@ -56,65 +70,82 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
       const scanner = new Html5Qrcode(containerId);
       scannerRef.current = scanner;
       
-      await scanner.start(
-        { 
-          facingMode: 'environment',
-          // Relaxed constraints for better compatibility
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+      const config = {
+        fps: 10,
+        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+          const qrboxSize = Math.floor(minEdge * 0.7);
+          return {
+            width: qrboxSize,
+            height: qrboxSize
+          };
         },
-        {
-          fps: 10,
-          qrbox: (viewfinderWidth, viewfinderHeight) => {
-            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            const qrboxSize = Math.floor(minEdge * 0.7);
-            return {
-              width: qrboxSize,
-              height: qrboxSize
-            };
+        aspectRatio: 1.0,
+      };
+
+      try {
+        // Try with environment camera and ideal resolution
+        await scanner.start(
+          { 
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
           },
-          aspectRatio: 1.0,
-        },
-        (decodedText) => {
-          onScan(decodedText);
-        },
-        () => {
-          // Silently ignore scan errors
-        }
-      );
+          config,
+          (decodedText) => onScan(decodedText),
+          () => {} // Ignore scan errors
+        );
+      } catch (err) {
+        console.warn('Failed to start with environment camera/resolution, retrying with defaults...', err);
+        // Fallback: Try with any camera and no specific resolution
+        await scanner.start(
+          {}, 
+          config,
+          (decodedText) => onScan(decodedText),
+          () => {}
+        );
+      }
       
       setIsInitializing(false);
       
-      // Try to get camera capabilities for zoom
-      try {
-        const videoElement = document.querySelector(`#${containerId} video`) as HTMLVideoElement;
-        if (videoElement && videoElement.srcObject instanceof MediaStream) {
-          const track = videoElement.srcObject.getVideoTracks()[0];
-          const capabilities = track.getCapabilities() as any;
-          
-          if (capabilities.zoom) {
-            setZoomCapabilities({
-              min: capabilities.zoom.min,
-              max: capabilities.zoom.max,
-              step: capabilities.zoom.step || 0.1
-            });
-            setZoom(capabilities.zoom.min);
-            trackRef.current = track;
+      // Try to get camera capabilities for zoom (slight delay to ensure video is playing)
+      setTimeout(async () => {
+        try {
+          const videoElement = document.querySelector(`#${containerId} video`) as HTMLVideoElement;
+          if (videoElement && videoElement.srcObject instanceof MediaStream) {
+            const track = videoElement.srcObject.getVideoTracks()[0];
+            const capabilities = track.getCapabilities() as any;
+            
+            if (capabilities.zoom) {
+              setZoomCapabilities({
+                min: capabilities.zoom.min,
+                max: capabilities.zoom.max,
+                step: capabilities.zoom.step || 0.1
+              });
+              setZoom(capabilities.zoom.min);
+              trackRef.current = track;
+            }
           }
+        } catch (err) {
+          console.warn('Camera zoom capabilities check failed:', err);
         }
-      } catch (err) {
-        console.warn('Camera zoom not supported or failed to initialize:', err);
-      }
+      }, 1000);
     } catch (err: any) {
       console.error('Failed to start scanner:', err);
-      const errorMessage = err?.message || err?.toString() || '';
+      const errorMessage = (err?.message || err?.toString() || '').toLowerCase();
       
-      if (errorMessage.includes('NotAllowedError') || errorMessage.includes('Permission denied')) {
+      if (errorMessage.includes('notallowederror') || errorMessage.includes('permission denied')) {
         setNeedsPermission(true);
-      } else if (errorMessage.includes('NotReadableError') || errorMessage.includes('Could not access camera')) {
+      } else if (errorMessage.includes('notreadableerror') || errorMessage.includes('trackstarterror') || errorMessage.includes('could not access camera')) {
         setError('Camera is already in use by another application or tab. Please close other camera apps and try again.');
+      } else if (errorMessage.includes('notfounderror') || errorMessage.includes('devicesnotfounderror')) {
+        setError('No camera was found on your device.');
+      } else if (errorMessage.includes('overconstrainederror')) {
+        setError('The requested camera resolution is not supported by your hardware.');
+      } else if (errorMessage.includes('securityerror')) {
+        setError('Camera access was blocked due to security settings or insecure context.');
       } else {
-        setError('Could not access camera. Please ensure permissions are granted and no other app is using it.');
+        setError(`Camera access failed: ${err?.message || 'Unknown Error'}. Please ensure permissions are granted in browser settings.`);
       }
       setIsInitializing(false);
     }
@@ -195,17 +226,26 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
                 <div className="w-16 h-16 bg-emerald-600/20 rounded-3xl flex items-center justify-center text-emerald-600 animate-pulse">
                   <Camera size={32} />
                 </div>
-                <div className="space-y-2">
-                  <h4 className="text-white font-black uppercase text-sm tracking-widest">Camera Access Required</h4>
-                  <p className="text-slate-400 text-xs font-medium leading-relaxed">
-                    To scan digital identity tokens, we need permission to use your device's camera.
-                  </p>
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <h4 className="text-white font-black uppercase text-sm tracking-widest">Camera Access Required</h4>
+                    <p className="text-slate-400 text-xs font-medium leading-relaxed">
+                      To scan digital identity tokens, we need permission to use your device's camera.
+                    </p>
+                  </div>
+                  
+                  <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
+                    <p className="text-emerald-500 text-[9px] font-black uppercase tracking-widest mb-1">How to enable:</p>
+                    <p className="text-slate-500 text-[9px] font-bold leading-relaxed">
+                      If you've previously blocked access, click the <span className="text-slate-300">lock</span> or <span className="text-slate-300">camera icon</span> in your browser's address bar and select <span className="text-emerald-500">"Allow"</span>.
+                    </p>
+                  </div>
                 </div>
                 <button 
                   onClick={() => startScanner()}
                   className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-900/20"
                 >
-                  Grant Camera Access
+                  Request Permission Again
                 </button>
               </div>
             )}
