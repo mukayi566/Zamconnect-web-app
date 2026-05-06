@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { X, Camera, ShieldCheck, AlertCircle, RefreshCw } from 'lucide-react';
+import { X, Camera, ShieldCheck, AlertCircle, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface QRScannerProps {
   onScan: (data: string) => void;
@@ -11,6 +11,9 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [zoom, setZoom] = useState(1);
+  const [zoomCapabilities, setZoomCapabilities] = useState<{ min: number; max: number; step: number } | null>(null);
+  const trackRef = useRef<MediaStreamTrack | null>(null);
   const containerId = 'qr-reader';
 
   useEffect(() => {
@@ -30,7 +33,11 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
         scannerRef.current = scanner;
         
         await scanner.start(
-          { facingMode: 'environment' },
+          { 
+            facingMode: 'environment',
+            width: { min: 640, ideal: 1280, max: 1920 },
+            height: { min: 480, ideal: 720, max: 1080 }
+          },
           {
             fps: 10,
             qrbox: (viewfinderWidth, viewfinderHeight) => {
@@ -54,7 +61,30 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
           }
         );
         
-        if (mounted) setIsInitializing(false);
+        if (mounted) {
+          setIsInitializing(false);
+          
+          // Try to get camera capabilities for zoom
+          try {
+            const videoElement = document.querySelector(`#${containerId} video`) as HTMLVideoElement;
+            if (videoElement && videoElement.srcObject instanceof MediaStream) {
+              const track = videoElement.srcObject.getVideoTracks()[0];
+              const capabilities = track.getCapabilities() as any;
+              
+              if (capabilities.zoom) {
+                setZoomCapabilities({
+                  min: capabilities.zoom.min,
+                  max: capabilities.zoom.max,
+                  step: capabilities.zoom.step || 0.1
+                });
+                setZoom(capabilities.zoom.min);
+                trackRef.current = track;
+              }
+            }
+          } catch (err) {
+            console.warn('Camera zoom not supported or failed to initialize:', err);
+          }
+        }
       } catch (err: any) {
         console.error('Failed to start scanner:', err);
         if (mounted) {
@@ -78,6 +108,20 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
 
   const handleRetry = () => {
     window.location.reload(); // Simple way to reset everything if it hangs
+  };
+
+  const handleZoomChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    setZoom(value);
+    if (trackRef.current) {
+      try {
+        await trackRef.current.applyConstraints({
+          advanced: [{ zoom: value }]
+        } as any);
+      } catch (err) {
+        console.error('Failed to apply zoom:', err);
+      }
+    }
   };
 
   return (
@@ -150,6 +194,60 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
               </div>
             )}
           </div>
+
+          {/* Zoom Control */}
+          {zoomCapabilities && (
+            <div className="mt-8 px-4 py-6 bg-slate-50/80 backdrop-blur-sm rounded-[2rem] border border-slate-100 space-y-4">
+              <div className="flex items-center justify-between px-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Precision Zoom Control</span>
+                </div>
+                <span className="text-[11px] font-black text-white bg-slate-900 px-3 py-1 rounded-full shadow-lg">
+                  {zoom.toFixed(1)}x
+                </span>
+              </div>
+              
+              <div className="flex items-center space-x-4">
+                <button 
+                  onClick={() => {
+                    const newValue = Math.max(zoomCapabilities.min, zoom - zoomCapabilities.step * 5);
+                    handleZoomChange({ target: { value: newValue.toString() } } as any);
+                  }}
+                  className="p-3 bg-white text-slate-400 hover:text-emerald-600 rounded-2xl shadow-sm border border-slate-100 transition-all active:scale-90"
+                >
+                  <ZoomOut size={18} />
+                </button>
+                
+                <div className="relative flex-1 group">
+                  <input
+                    type="range"
+                    min={zoomCapabilities.min}
+                    max={zoomCapabilities.max}
+                    step={zoomCapabilities.step}
+                    value={zoom}
+                    onChange={handleZoomChange}
+                    className="w-full h-3 bg-slate-200 rounded-full appearance-none cursor-pointer accent-emerald-600"
+                  />
+                </div>
+
+                <button 
+                  onClick={() => {
+                    const newValue = Math.min(zoomCapabilities.max, zoom + zoomCapabilities.step * 5);
+                    handleZoomChange({ target: { value: newValue.toString() } } as any);
+                  }}
+                  className="p-3 bg-white text-slate-400 hover:text-emerald-600 rounded-2xl shadow-sm border border-slate-100 transition-all active:scale-90"
+                >
+                  <ZoomIn size={18} />
+                </button>
+              </div>
+              
+              <div className="flex justify-between px-2">
+                <span className="text-[9px] font-black text-slate-300 uppercase tracking-tighter">Wide Angle</span>
+                <span className="text-[9px] font-black text-slate-300 uppercase tracking-tighter">Telephoto</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
